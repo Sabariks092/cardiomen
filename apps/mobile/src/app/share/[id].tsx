@@ -1,3 +1,4 @@
+import TrackingEngine from '@engine';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Canvas, drawAsImage, Group, ImageFormat, Rect, SkImage } from '@shopify/react-native-skia';
 import { randomUUID } from 'expo-crypto';
@@ -18,8 +19,12 @@ import { decodeTrack, LngLat, previewOf, toSegments, trimEnds } from '@/lib/trac
 import { importPhoto, renderMapImage, useMapImages, usePhotoImages } from '@/share/assets';
 import { Chips, ColorPicker, Panel, Slider, Toggle } from '@/share/controls';
 import {
+  applyStyle,
   Background,
   canvasHeight,
+  currentStyle,
+  SHARE_STYLES,
+  ShareStyle,
   CANVAS_W,
   clampFrame,
   CollageLayer,
@@ -54,9 +59,10 @@ import { SelectionOutline, ShareData, ShareScene } from '@/share/scene';
 import { requestSync } from '@/sync/worker';
 import { Button, colors, Field, radius, Screen, space, T } from '@/ui';
 
-type Tab = 'format' | 'layers' | 'background' | 'map' | 'route' | 'metrics' | 'photos' | 'text' | 'presets';
+type Tab = 'style' | 'format' | 'layers' | 'background' | 'map' | 'route' | 'metrics' | 'photos' | 'text' | 'presets';
 
 const TABS: { id: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'style', label: 'Style', icon: 'sparkles-outline' },
   { id: 'format', label: 'Format', icon: 'crop-outline' },
   { id: 'layers', label: 'Layers', icon: 'layers-outline' },
   { id: 'background', label: 'Background', icon: 'color-fill-outline' },
@@ -93,7 +99,7 @@ export default function ShareStudio() {
 
   const [history, setHistory] = useState<History<ShareDoc> | null>(null);
   const [fullLines, setFullLines] = useState<LngLat[][]>([]);
-  const [tab, setTab] = useState<Tab>('format');
+  const [tab, setTab] = useState<Tab>('style');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCell, setSelectedCell] = useState(0);
   const [moveContent, setMoveContent] = useState(false);
@@ -382,7 +388,7 @@ export default function ShareStudio() {
     const bytes = image.encodeToBytes(format === 'png' ? ImageFormat.PNG : ImageFormat.JPEG, 95);
     const file = new File(Paths.cache, `cardiomen-${id.slice(-8)}-${Date.now()}.${format === 'png' ? 'png' : 'jpg'}`);
     file.create();
-    file.write(bytes);
+    await file.write(bytes);
     return { file };
   };
 
@@ -425,43 +431,91 @@ export default function ShareStudio() {
   // ---------- Photos ----------
   const collage = firstOf('collage');
 
-  const addPhotos = async () => {
+  /** Adds photos to the collage. The first photo also switches the design to photo + route. */
+  const addPhotoUris = useCallback(
+    (uris: string[], style: ShareStyle = 'photo-route') => {
+      change((d) => {
+        const existing = d.layers.find((l): l is CollageLayer => l.kind === 'collage');
+        if (!existing) return applyStyle(d, style, uris);
+        const cells = [...existing.cells, ...defaultCollageLayer(uris).cells].slice(0, MAX_PHOTOS);
+        const updated = {
+          ...d,
+          layers: d.layers.map((l) =>
+            l.id === existing.id
+              ? { ...existing, cells, visible: true, layoutId: layoutById(existing.layoutId, cells.length).id }
+              : l,
+          ),
+        };
+        return existing.visible ? updated : applyStyle(updated, style);
+      });
+      setSelectedCell(0);
+    },
+    [change],
+  );
+
+  const pickPhotos = async (source: 'device' | 'camera', style?: ShareStyle) => {
     const existing = collage?.cells.length ?? 0;
     const remaining = MAX_PHOTOS - existing;
     if (remaining <= 0) {
       Alert.alert(`Up to ${MAX_PHOTOS} photos`, 'Remove one to add another.');
       return;
     }
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-      quality: 1,
-    });
-    if (picked.canceled) return;
-    let uris: string[];
     try {
-      uris = await Promise.all(picked.assets.map((a) => importPhoto(a.uri, a.width, a.height)));
+      let picked: ImagePicker.ImagePickerResult;
+      if (source === 'camera') {
+        const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+        if (!granted) {
+          Alert.alert('Camera permission needed', 'Allow the camera in app settings to take a photo.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open settings', onPress: () => TrackingEngine.openAppSettings() },
+          ]);
+          return;
+        }
+        picked = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9 });
+      } else {
+        picked = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsMultipleSelection: true,
+          selectionLimit: remaining,
+          quality: 1,
+        });
+      }
+      if (picked.canceled) return;
+      const uris = await Promise.all(picked.assets.map((a) => importPhoto(a.uri, a.width, a.height)));
+      addPhotoUris(uris, style);
     } catch (e) {
       Alert.alert('Could not add photo', e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const chooseStyle = (style: ShareStyle) => {
+    const needsPhoto = SHARE_STYLES.find((s) => s.value === style)?.needsPhoto;
+    if (needsPhoto && !collage) {
+      Alert.alert('Add a photo', 'This style uses your photo as the background.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Take a photo', onPress: () => pickPhotos('camera', style) },
+        { text: 'From device', onPress: () => pickPhotos('device', style) },
+      ]);
       return;
     }
-    if (collage) {
-      const fresh = defaultCollageLayer(uris).cells;
-      const cells = [...collage.cells, ...fresh];
-      patchLayer<CollageLayer>(collage.id, { cells, layoutId: layoutById(collage.layoutId, cells.length).id });
-    } else {
-      // Photos go underneath the route and metrics by default.
-      const layer = defaultCollageLayer(uris);
-      change((d) => {
-        const firstAbove = d.layers.findIndex((l) => l.kind !== 'map');
-        const at = firstAbove < 0 ? d.layers.length : firstAbove;
-        return { ...d, layers: [...d.layers.slice(0, at), layer, ...d.layers.slice(at)] };
-      });
-      setSelectedId(layer.id);
-    }
-    setSelectedCell(0);
+    change((d) => applyStyle(d, style));
   };
+
+  // On a low-memory phone, Android can close the app while the camera is open. The photo is still
+  // waiting for us when it reopens here.
+  const recoveredCamera = useRef(false);
+  useEffect(() => {
+    if (!history || recoveredCamera.current) return;
+    recoveredCamera.current = true;
+    ImagePicker.getPendingResultAsync()
+      .then(async (pending) => {
+        const result = Array.isArray(pending) ? pending[0] : pending;
+        if (!result || !('assets' in result) || result.canceled || !result.assets) return;
+        const uris = await Promise.all(result.assets.map((a: ImagePicker.ImagePickerAsset) => importPhoto(a.uri, a.width, a.height)));
+        addPhotoUris(uris);
+      })
+      .catch((e) => console.warn('Could not recover camera photo', e));
+  }, [history, addPhotoUris]);
 
   const updateFilter = (patch: Partial<PhotoFilter>, key: string | null) => {
     if (!collage) return;
@@ -647,6 +701,38 @@ export default function ShareStudio() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xl }}
       >
+        {tab === 'style' ? (
+          <Panel>
+            <Button
+              title="Upload from device"
+              onPress={() => pickPhotos('device')}
+              icon={<Ionicons name="images-outline" size={18} color={colors.black} />}
+            />
+            <Button
+              title="Take a photo"
+              kind="glass"
+              onPress={() => pickPhotos('camera')}
+              icon={<Ionicons name="camera-outline" size={18} color={colors.white} />}
+            />
+            <T v="small" muted>
+              Your photo becomes the background, with your route outline and metrics on top. Tap and drag the
+              route or the numbers to move them, and pinch to resize.
+            </T>
+            <Chips
+              options={SHARE_STYLES.map((s) => ({ value: s.value, label: s.label }))}
+              value={currentStyle(doc)}
+              onChange={chooseStyle}
+            />
+            {collage && collage.cells.length > 1 ? (
+              <Chips
+                options={layoutsFor(collage.cells.length).map((l, i) => ({ value: l.id, label: `Collage ${i + 1}` }))}
+                value={layoutById(collage.layoutId, collage.cells.length).id}
+                onChange={(layoutId) => patchLayer<CollageLayer>(collage.id, { layoutId })}
+              />
+            ) : null}
+          </Panel>
+        ) : null}
+
         {tab === 'format' ? (
           <Panel>
             <Chips
@@ -918,13 +1004,8 @@ export default function ShareStudio() {
                   }
                 />
               ))}
-              <ColorPicker
-                label="Map credit"
-                value={doc.attributionColor}
-                onChange={(attributionColor) => change((d) => ({ ...d, attributionColor }))}
-              />
               <T v="small" faint>
-                The map's data license requires this small credit whenever a map is shown. You can recolor it.
+                The map's data license requires the small credit in its corner, so it can't be removed.
               </T>
             </Panel>
           ) : (
@@ -966,6 +1047,11 @@ export default function ShareStudio() {
                 min={0}
                 max={30}
                 onChange={(glow) => patchLayer<RouteLayer>(route.id, { glow }, 'glow')}
+              />
+              <Toggle
+                label="Dark edge, for bright photos"
+                value={!!route.halo}
+                onChange={(halo) => patchLayer<RouteLayer>(route.id, { halo })}
               />
               <Toggle
                 label="Start and end markers"
@@ -1013,6 +1099,11 @@ export default function ShareStudio() {
                 onChange={(size) => patchLayer<MetricsLayer>(metrics.id, { size }, 'size')}
               />
               <Toggle
+                label="Dark shade behind the numbers"
+                value={!!metrics.shade}
+                onChange={(shade) => patchLayer<MetricsLayer>(metrics.id, { shade })}
+              />
+              <Toggle
                 label="Labels under values"
                 value={metrics.showLabels}
                 onChange={(showLabels) => patchLayer<MetricsLayer>(metrics.id, { showLabels })}
@@ -1057,10 +1148,16 @@ export default function ShareStudio() {
         {tab === 'photos' ? (
           <Panel>
             <Button
-              title={collage ? `Add photos (${collage.cells.length}/${MAX_PHOTOS})` : 'Add photos'}
+              title={collage ? `From device (${collage.cells.length}/${MAX_PHOTOS})` : 'Upload from device'}
               kind="glass"
-              onPress={addPhotos}
+              onPress={() => pickPhotos('device')}
               icon={<Ionicons name="images-outline" size={17} color={colors.white} />}
+            />
+            <Button
+              title="Take a photo"
+              kind="glass"
+              onPress={() => pickPhotos('camera')}
+              icon={<Ionicons name="camera-outline" size={17} color={colors.white} />}
             />
             {collage ? (
               <>

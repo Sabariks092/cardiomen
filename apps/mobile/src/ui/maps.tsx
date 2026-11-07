@@ -29,7 +29,9 @@ export function LiveMap({
 }) {
   const camera = useRef<CameraRef>(null);
   const initial = useRef(position);
-  const [placed, setPlaced] = useState(!!position);
+  // A camera move made before the map has loaded is lost, so the first jump waits for it.
+  const [mapReady, setMapReady] = useState(false);
+  const [placed, setPlaced] = useState(false);
   const route = useMemo(() => routeGeoJSON(lines), [lines]);
   const dot = useMemo<GeoJSON.Feature<GeoJSON.Point> | null>(
     () =>
@@ -40,14 +42,14 @@ export function LiveMap({
   );
 
   useEffect(() => {
-    if (!position || !follow) return;
+    if (!position || !follow || !mapReady) return;
     if (!placed) {
       camera.current?.jumpTo({ center: position, zoom: 16 });
       setPlaced(true);
     } else {
       camera.current?.easeTo({ center: position, duration: 700 });
     }
-  }, [position, follow, placed]);
+  }, [position, follow, placed, mapReady]);
 
   return (
     <Map
@@ -59,6 +61,7 @@ export function LiveMap({
       compass={false}
       touchRotate={false}
       touchPitch={false}
+      onDidFinishLoadingMap={() => setMapReady(true)}
       onRegionWillChange={(e) => {
         if (e.nativeEvent.userInteraction) onUserGesture?.();
       }}

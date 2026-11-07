@@ -59,6 +59,8 @@ export type RouteLayer = LayerBase & {
   width: number;
   glow: number;
   markers: boolean;
+  /** A soft dark edge, so a white line stays visible on a bright photo. */
+  halo?: boolean;
 };
 
 export type MetricsLayer = LayerBase & {
@@ -71,6 +73,8 @@ export type MetricsLayer = LayerBase & {
   labelColor: string;
   showLabels: boolean;
   align: Align;
+  /** A dark fade behind the numbers, so they stay readable on a bright photo. */
+  shade?: boolean;
 };
 
 export type CollageLayer = LayerBase & {
@@ -107,7 +111,6 @@ export interface ShareDoc {
   background: Background;
   layers: Layer[];
   trimEndsM: number;
-  attributionColor: string;
 }
 
 /** The canvas is always this wide while laying out; export just multiplies it. */
@@ -347,8 +350,81 @@ export function defaultDoc(): ShareDoc {
     background: { kind: 'solid', color: '#000000' },
     layers: [defaultMapLayer(), defaultRouteLayer(), defaultMetricsLayer()],
     trimEndsM: 0,
-    attributionColor: 'rgba(255,255,255,0.6)',
   };
+}
+
+export type ShareStyle = 'map' | 'photo-route' | 'photo-map' | 'sticker' | 'metrics';
+
+export const SHARE_STYLES: { value: ShareStyle; label: string; needsPhoto: boolean }[] = [
+  { value: 'photo-route', label: 'Photo + route', needsPhoto: true },
+  { value: 'photo-map', label: 'Photo + map', needsPhoto: true },
+  { value: 'map', label: 'Map', needsPhoto: false },
+  { value: 'sticker', label: 'Transparent route', needsPhoto: false },
+  { value: 'metrics', label: 'Metrics only', needsPhoto: false },
+];
+
+const FULL: Frame = { x: 0, y: 0, w: 1, h: 1 };
+
+/**
+ * One tap to a complete design. Nothing is lost: photos stay in the document when a style doesn't
+ * use them, so switching back brings them back.
+ */
+export function applyStyle(doc: ShareDoc, style: ShareStyle, photoUris: string[] = []): ShareDoc {
+  const first = <K extends Layer['kind']>(kind: K) =>
+    doc.layers.find((l): l is Extract<Layer, { kind: K }> => l.kind === kind);
+  const existing = first('collage');
+  const collage: CollageLayer | undefined =
+    existing ?? (photoUris.length ? defaultCollageLayer(photoUris) : undefined);
+  const map = first('map') ?? defaultMapLayer();
+  const route = first('route') ?? defaultRouteLayer();
+  const metrics = first('metrics') ?? defaultMetricsLayer();
+  const others = doc.layers.filter(
+    (l) => l.id !== existing?.id && l.id !== map.id && l.id !== route.id && l.id !== metrics.id,
+  );
+
+  const usesPhoto = style === 'photo-route' || style === 'photo-map';
+  const insetW = 0.44;
+  const insetH = Math.min(0.6, (insetW * doc.ratio.w) / doc.ratio.h);
+
+  const nextMap: MapLayer =
+    style === 'map'
+      ? { ...map, frame: FULL, visible: true, locked: true, cornerRadius: 0 }
+      : style === 'photo-map'
+        ? { ...map, frame: { x: 0.06, y: 0.06, w: insetW, h: insetH }, visible: true, locked: false, cornerRadius: 40 }
+        : { ...map, visible: false };
+  const nextRoute: RouteLayer = {
+    ...route,
+    visible: style !== 'metrics',
+    locked: false,
+    halo: usesPhoto,
+    ...(style === 'photo-route' || style === 'sticker' ? { frame: { x: 0.12, y: 0.1, w: 0.76, h: 0.58 } } : null),
+  };
+  const nextMetrics: MetricsLayer = { ...metrics, visible: true, shade: usesPhoto };
+  const nextCollage: CollageLayer | undefined = collage && { ...collage, frame: FULL, visible: usesPhoto };
+
+  const background: Background =
+    style === 'sticker'
+      ? { kind: 'transparent' }
+      : doc.background.kind === 'transparent'
+        ? { kind: 'solid', color: '#000000' }
+        : doc.background;
+
+  return {
+    ...doc,
+    background,
+    layers: [...(nextCollage ? [nextCollage] : []), nextMap, nextRoute, nextMetrics, ...others],
+  };
+}
+
+/** Which style the document currently matches, for showing the selected option. */
+export function currentStyle(doc: ShareDoc): ShareStyle | null {
+  const has = (kind: Layer['kind']) => doc.layers.some((l) => l.kind === kind && l.visible);
+  if (doc.background.kind === 'transparent' && has('route') && !has('map') && !has('collage')) return 'sticker';
+  if (has('collage') && has('map')) return 'photo-map';
+  if (has('collage') && has('route')) return 'photo-route';
+  if (has('map') && !has('collage')) return 'map';
+  if (has('metrics') && !has('map') && !has('route') && !has('collage')) return 'metrics';
+  return null;
 }
 
 /** A preset keeps the design but not this activity's photos. */

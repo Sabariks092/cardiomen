@@ -22,7 +22,7 @@ import { useMemo } from 'react';
 import { Fragment, ReactElement } from 'react';
 import { Activity } from '@/db/activities';
 import { averagePace, formatActivityDate, formatDistance, formatDuration, formatPace, formatSteps, TYPE_LABEL, Units } from '@/lib/format';
-import { Camera, fitCamera, MAP_ATTRIBUTION, project, toImagePoint, unproject } from '@/lib/mapStyle';
+import { Camera, fitCamera, project, toImagePoint, unproject } from '@/lib/mapStyle';
 import { bboxOf, LngLat } from '@/lib/track';
 import {
   Align,
@@ -131,6 +131,16 @@ function RouteStroke({
   ) : null;
   return (
     <Group opacity={layer.opacity}>
+      {layer.halo ? (
+        <Path
+          path={path}
+          style="stroke"
+          strokeWidth={layer.width + 8}
+          strokeCap="round"
+          strokeJoin="round"
+          color="rgba(0,0,0,0.4)"
+        />
+      ) : null}
       {layer.glow > 0 ? (
         <Path
           path={path}
@@ -197,23 +207,6 @@ function MapPart({ layer, doc, assets }: { layer: MapLayer; doc: ShareDoc; asset
   );
 }
 
-/** Drawn last, so photos or anything else placed over the map can't hide the required credit. */
-function MapCredit({ layer, doc, assets }: { layer: MapLayer; doc: ShareDoc; assets: ShareAssets }) {
-  if (!assets.mapImages[layer.id]) return null;
-  const box = px(layer.frame, doc);
-  const attribution = font('sans', 15);
-  const tw = textWidth(attribution, MAP_ATTRIBUTION);
-  return (
-    <Text
-      x={box.x + box.w - tw - 14}
-      y={box.y + box.h - 12}
-      text={MAP_ATTRIBUTION}
-      font={attribution}
-      color={doc.attributionColor}
-    />
-  );
-}
-
 function CollagePart({ layer, doc, assets }: { layer: CollageLayer; doc: ShareDoc; assets: ShareAssets }) {
   const box = px(layer.frame, doc);
   const layout = layoutById(layer.layoutId, layer.cells.length);
@@ -222,11 +215,13 @@ function CollagePart({ layer, doc, assets }: { layer: CollageLayer; doc: ShareDo
       {layout.rects.map(([rx, ry, rw, rh], i) => {
         const cell = layer.cells[i];
         if (!cell) return null;
-        const g = layer.gap / 2;
+        // A gap only makes sense between photos. On its own, a photo fills the frame edge to edge.
+        const gap = layout.rects.length > 1 ? layer.gap : 0;
+        const g = gap / 2;
         const x = box.x + rx * box.w + g;
         const y = box.y + ry * box.h + g;
-        const w = rw * box.w - layer.gap;
-        const h = rh * box.h - layer.gap;
+        const w = rw * box.w - gap;
+        const h = rh * box.h - gap;
         const image = assets.photos[cell.uri];
         const clip = Skia.RRectXY(rect(x, y, w, h), layer.cornerRadius, layer.cornerRadius);
         if (!image) {
@@ -299,8 +294,18 @@ function MetricsPart({ layer, doc, data }: { layer: MetricsLayer; doc: ShareDoc;
   const unitFont = font(layer.font, layer.size * 0.42);
   const labelFont = font('sans', Math.max(layer.size * 0.3, 16));
 
+  const shadeTop = Math.max(0, box.y - 160);
   return (
     <Group opacity={layer.opacity}>
+      {layer.shade ? (
+        <Rect x={0} y={shadeTop} width={CANVAS_W} height={canvasHeight(doc) - shadeTop}>
+          <LinearGradient
+            start={vec(0, shadeTop)}
+            end={vec(0, canvasHeight(doc))}
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.72)']}
+          />
+        </Rect>
+      ) : null}
       {items.map((item, i) => {
         const col = i % cols;
         const row = Math.floor(i / cols);
@@ -419,7 +424,6 @@ export function ShareScene({
             return <TextPart key={layer.id} layer={layer} doc={doc} />;
         }
       })}
-      {visibleMap ? <MapCredit layer={visibleMap} doc={doc} assets={assets} /> : null}
     </Group>
   );
 }

@@ -31,7 +31,7 @@ export async function importPhoto(uri: string, width: number, height: number): P
   const rendered = await context.renderAsync();
   const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 });
   const target = new File(dir, `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`);
-  new File(result.uri).copy(target);
+  await new File(result.uri).copy(target);
   return target.uri;
 }
 
@@ -129,10 +129,13 @@ export function usePhotoImages(doc: ShareDoc) {
 
   useEffect(() => {
     uris.forEach((uri) => {
-      if (photos[uri] !== undefined) return;
+      if (photos[uri]) return;
       loadImage(uri)
         .then((image) => setPhotos((prev) => ({ ...prev, [uri]: image })))
-        .catch(() => setPhotos((prev) => ({ ...prev, [uri]: null })));
+        .catch((e) => {
+          console.warn("Could not load photo", e);
+          setPhotos((prev) => ({ ...prev, [uri]: null }));
+        });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

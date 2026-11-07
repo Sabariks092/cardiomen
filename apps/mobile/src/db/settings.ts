@@ -9,9 +9,10 @@ export interface Settings {
   /** Hide the start and end of shared routes. Null until the user has been asked. */
   shareTrim: boolean | null;
   notificationsWarned: boolean;
+  permissionsAsked: boolean;
 }
 
-const DEFAULTS: Settings = { units: 'km', weekStart: 1, keepAwake: false, shareTrim: null, notificationsWarned: false };
+const DEFAULTS: Settings = { units: 'km', weekStart: 1, keepAwake: false, shareTrim: null, notificationsWarned: false, permissionsAsked: false };
 
 export async function loadSettings(): Promise<Settings> {
   const rows = await getDb().getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings');

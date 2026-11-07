@@ -83,6 +83,18 @@ export function useLiveTrack(sessionId: string | null) {
   return points;
 }
 
+/**
+ * Asked as soon as the app first opens, so nothing interrupts the first walk. Android doesn't allow
+ * asking during installation, so this is the earliest possible moment.
+ */
+export async function requestAllPermissionsOnFirstLaunch() {
+  if (Platform.OS !== 'android') return;
+  const perms = await requestTrackingPermissions();
+  if (!perms.location) return;
+  await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
+  await TrackingEngine.requestIgnoreBatteryOptimizations();
+}
+
 export interface PermissionResult {
   location: boolean;
   notifications: boolean;
@@ -95,7 +107,7 @@ function explainPermissions(): Promise<boolean> {
       'Before you start',
       'Location draws your route and measures distance. It is only used while you record.\n\n' +
         'Notifications tell you if an activity gets paused, and give you lock-screen controls.\n\n' +
-        'Physical activity counts your steps.\n\nOnly location is required.',
+        'Physical activity counts your steps.\n\nThe camera lets you take a photo for your activity image.\n\nOnly location is required to track.',
       [
         { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
         { text: 'Continue', onPress: () => resolve(true) },

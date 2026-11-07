@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyStyle,
   canvasHeight,
   clampFrame,
   COLLAGE_LAYOUTS,
   colorMatrix,
+  currentStyle,
   defaultCollageLayer,
   defaultDoc,
   defaultMapLayer,
@@ -157,5 +159,62 @@ describe('undo history', () => {
     h = push(undo(h), 2, null, 1);
     expect(h.future).toEqual([]);
     expect(undo(createHistory(5)).present).toBe(5);
+  });
+});
+
+describe('share styles', () => {
+  const layer = (doc: ReturnType<typeof defaultDoc>, kind: string) => doc.layers.find((l) => l.kind === kind)!;
+  const index = (doc: ReturnType<typeof defaultDoc>, kind: string) => doc.layers.findIndex((l) => l.kind === kind);
+
+  it('photo + route puts the photo behind the route and metrics, with no map', () => {
+    const doc = applyStyle(defaultDoc(), 'photo-route', ['file:///a.jpg']);
+    expect(layer(doc, 'map').visible).toBe(false);
+    expect(layer(doc, 'collage').visible).toBe(true);
+    expect(index(doc, 'collage')).toBeLessThan(index(doc, 'route'));
+    expect(index(doc, 'collage')).toBeLessThan(index(doc, 'metrics'));
+    expect(layer(doc, 'route').locked).toBe(false);
+    expect(currentStyle(doc)).toBe('photo-route');
+  });
+
+  it('photo + map shows the map as a movable part of the image, over the photo', () => {
+    const doc = applyStyle(defaultDoc(), 'photo-map', ['file:///a.jpg']);
+    const map = layer(doc, 'map');
+    expect(map.visible && !map.locked).toBe(true);
+    expect(map.frame.w).toBeLessThan(1);
+    expect(index(doc, 'collage')).toBeLessThan(index(doc, 'map'));
+    expect(index(doc, 'map')).toBeLessThan(index(doc, 'route'));
+    expect(currentStyle(doc)).toBe('photo-map');
+  });
+
+  it('the map box stays square on every ratio', () => {
+    for (const ratio of [{ w: 1, h: 1 }, { w: 9, h: 16 }, { w: 4, h: 5 }]) {
+      const doc = applyStyle({ ...defaultDoc(), ratio }, 'photo-map', ['file:///a.jpg']);
+      const { w, h } = layer(doc, 'map').frame;
+      expect(w * 1080).toBeCloseTo((h * 1080 * ratio.h) / ratio.w, 3);
+    }
+  });
+
+  it('switching styles never loses photos', () => {
+    let doc = applyStyle(defaultDoc(), 'photo-route', ['file:///a.jpg', 'file:///b.jpg']);
+    doc = applyStyle(doc, 'map');
+    expect(layer(doc, 'collage').visible).toBe(false);
+    expect(currentStyle(doc)).toBe('map');
+    doc = applyStyle(doc, 'photo-route');
+    expect(layer(doc, 'collage').visible).toBe(true);
+    expect((layer(doc, 'collage') as { cells: unknown[] }).cells).toHaveLength(2);
+  });
+
+  it('the transparent style exports as PNG, and leaving it restores a background', () => {
+    let doc = applyStyle({ ...defaultDoc(), format: 'jpeg' }, 'sticker');
+    expect(exportFormat(doc)).toBe('png');
+    expect(currentStyle(doc)).toBe('sticker');
+    doc = applyStyle(doc, 'map');
+    expect(doc.background.kind).toBe('solid');
+  });
+
+  it('keeps extra layers such as text', () => {
+    const base = defaultDoc();
+    base.layers.push({ ...defaultMapLayer(), id: 'x', kind: 'text', text: 'Hi', font: 'sans', size: 40, color: '#fff', align: 'start' } as never);
+    expect(applyStyle(base, 'photo-route', ['file:///a.jpg']).layers.some((l) => l.id === 'x')).toBe(true);
   });
 });

@@ -1,14 +1,14 @@
 import type { ActivityType } from '@engine';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ComponentRef, useCallback, useMemo, useRef, useState } from 'react';
+import { ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuthState } from '@/auth/api';
 import { LOCAL_ONLY } from '@/auth/session';
 import { dayRows } from '@/db/activities';
 import { useLocalQuery } from '@/db';
-import { useSettings } from '@/db/settings';
+import { loadSettings, saveSetting, useSettings } from '@/db/settings';
 import { distanceValue, formatHours, TYPE_LABEL, Units } from '@/lib/format';
 import {
   addDays,
@@ -23,7 +23,7 @@ import {
   todayLocal,
   totals,
 } from '@/lib/stats';
-import { useEngineSnapshot } from '@/tracking/useEngine';
+import { requestAllPermissionsOnFirstLaunch, useEngineSnapshot } from '@/tracking/useEngine';
 import { colors, Glass, radius, Screen, Segmented, space, Stat, T } from '@/ui';
 
 const CELL = 13;
@@ -77,6 +77,15 @@ export default function Home() {
   const [menu, setMenu] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
   const { snapshot, refresh } = useEngineSnapshot();
+
+  useEffect(() => {
+    (async () => {
+      const { permissionsAsked } = await loadSettings();
+      if (permissionsAsked) return;
+      await saveSetting('permissionsAsked', true);
+      await requestAllPermissionsOnFirstLaunch();
+    })().catch((e) => console.warn('Permission request failed', e));
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

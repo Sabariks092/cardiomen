@@ -44,8 +44,6 @@ export const MAP_THEMES: { name: string; colors: MapColors }[] = [
   },
 ];
 
-export const MAP_ATTRIBUTION = '© OpenStreetMap · © OpenMapTiles · OpenFreeMap';
-
 const TILEJSON = 'https://tiles.openfreemap.org/planet';
 const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
 

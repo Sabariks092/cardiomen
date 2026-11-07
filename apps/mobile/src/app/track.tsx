@@ -260,6 +260,7 @@ export default function TrackScreen() {
             {snapshot && !snapshot.health.ignoringBatteryOptimizations ? (
               <Pressable
                 accessibilityRole="button"
+                style={{ alignSelf: 'stretch' }}
                 onPress={() => TrackingEngine.requestIgnoreBatteryOptimizations()}
               >
                 <Glass overMap style={styles.batteryHint}>
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   startText: { color: colors.black, fontWeight: '700', letterSpacing: 2 },
-  batteryHint: { flexDirection: 'row', gap: space.md, alignItems: 'center', padding: space.md },
+  batteryHint: { flexDirection: 'row', gap: space.md, alignItems: 'center', padding: space.md, alignSelf: 'stretch' },
   countdown: {
     position: 'absolute',
     top: 0,

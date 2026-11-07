@@ -167,7 +167,7 @@ class TrackingService : Service(), Engine.ServiceHook, SensorEventListener {
         lng = location.longitude,
         accuracyM = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
         altitudeM = if (location.hasAltitude()) location.altitude else null,
-        speedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
+        speedMps = if (location.hasSpeed() && location.hasSpeedAccuracy()) location.speed.toDouble() else null,
       ),
     )
     if (engine.currentSession()?.state == SessionState.ARMED) engine.emitPreviewTick()
