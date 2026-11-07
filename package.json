@@ -1,0 +1,13 @@
+{
+  "name": "cardiomen",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run web --workspace @cardiomen/mobile",
+    "mobile": "npm run start --workspace @cardiomen/mobile",
+    "android": "npm run android --workspace @cardiomen/mobile",
+    "api": "npm run dev --workspace @cardiomen/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}

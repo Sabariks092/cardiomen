@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ActivityType {
+  WALK
+  JOG
+  RUN
+}
+
+enum OtpPurpose {
+  REGISTER
+  RESET_PASSWORD
+}
+
+model User {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  email           String   @unique
+  name            String
+  avatarUrl       String?
+  passwordHash    String?
+  googleSub       String?  @unique
+  emailVerifiedAt DateTime
+  syncSeq         BigInt   @default(0)
+  settings        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  activities Activity[]
+  tokens     RefreshToken[]
+  presets    SharePreset[]
+}
+
+// Unverified sign-ups live here. A User row exists only after OTP success, so nobody can
+// pre-register someone else's email with their own password.
+model PendingRegistration {
+  email        String   @id
+  name         String
+  passwordHash String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model EmailOtp {
+  id         String     @id @default(uuid(7)) @db.Uuid
+  email      String
+  purpose    OtpPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([email, purpose, createdAt(sort: Desc)])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @db.Uuid
+  familyId   String    @db.Uuid
+  tokenHash  String    @unique
+  deviceName String?
+  expiresAt  DateTime
+  rotatedAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Activity {
+  id              String       @id @db.Uuid
+  userId          String       @db.Uuid
+  type            ActivityType
+  title           String?
+  note            String?
+  startedAt       DateTime
+  endedAt         DateTime
+  tzOffsetMin     Int
+  localDate       String
+  activeMs        BigInt
+  elapsedMs       BigInt
+  distanceM       Float
+  steps           Int?
+  previewRoute    Json
+  bbox            Json?
+  engineVersion   Int
+  clientUpdatedAt DateTime
+  version         BigInt
+  deletedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track ActivityTrack?
+
+  @@unique([userId, version])
+  @@index([userId, startedAt(sort: Desc)])
+}
+
+// Separate so that listing activities never loads route data.
+model ActivityTrack {
+  activityId String   @id @db.Uuid
+  format     Int
+  blob       Bytes
+  sha256     String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+}
+
+model SharePreset {
+  id              String    @id @db.Uuid
+  userId          String    @db.Uuid
+  name            String
+  doc             Json
+  clientUpdatedAt DateTime
+  version         BigInt
+  deletedAt       DateTime?
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}

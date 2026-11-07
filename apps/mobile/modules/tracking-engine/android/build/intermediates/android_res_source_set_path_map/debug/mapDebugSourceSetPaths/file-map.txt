@@ -1,0 +1,9 @@
+com.cardiomen.tracking.tracking-engine-pngs-0 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\build\generated\res\pngs\debug
+com.cardiomen.tracking.tracking-engine-updated_navigation_xml-1 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\build\generated\updated_navigation_xml\debug
+com.cardiomen.tracking.tracking-engine-mergeDebugResources-2 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+com.cardiomen.tracking.tracking-engine-mergeDebugResources-3 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+com.cardiomen.tracking.tracking-engine-debug-4 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\build\intermediates\merged_res\debug\mergeDebugResources
+com.cardiomen.tracking.tracking-engine-debug-5 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\build\intermediates\packaged_res\debug\packageDebugResources
+com.cardiomen.tracking.tracking-engine-debug-6 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\src\debug\res
+com.cardiomen.tracking.tracking-engine-main-7 C:\Users\New\Desktop\personal-projects\mobile-apps\cardiomen\apps\mobile\modules\tracking-engine\android\src\main\res
+gradleHome-0 C:\Users\New\.gradle

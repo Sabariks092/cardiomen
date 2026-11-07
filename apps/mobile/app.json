@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Cardiomen",
+    "slug": "cardiomen",
+    "scheme": "cardiomen",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "android": {
+      "package": "com.cardiomen.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "ios": {
+      "bundleIdentifier": "com.cardiomen.app",
+      "supportsTablet": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-status-bar", { "style": "light" }],
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-sharing",
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
+      ["expo-splash-screen", { "backgroundColor": "#000000", "image": "./assets/splash-icon.png", "imageWidth": 120 }],
+      "expo-font",
+      "@maplibre/maplibre-react-native",
+      "@react-native-google-signin/google-signin",
+      "expo-background-task",
+      ["expo-image-picker", { "photosPermission": "Choose photos to add to your activity image.", "cameraPermission": false, "microphonePermission": false }],
+      ["expo-media-library", { "photosPermission": "Save your activity image to the gallery.", "savePhotosPermission": "Save your activity image to the gallery.", "isAccessMediaLocationEnabled": false }]
+    ],
+    "experiments": { "typedRoutes": false }
+  }
+}

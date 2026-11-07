@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.expo/
+dist/
+.next/
+apps/mobile/android/
+apps/mobile/ios/
+apps/api/src/generated/
+*.tsbuildinfo

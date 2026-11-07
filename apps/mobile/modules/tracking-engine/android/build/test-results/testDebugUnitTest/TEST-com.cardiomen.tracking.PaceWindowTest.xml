@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.cardiomen.tracking.PaceWindowTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-07T11:38:01.320Z" hostname="DESKTOP-7DM5RUU" time="0.035">
+  <properties/>
+  <testcase name="computesPace" classname="com.cardiomen.tracking.PaceWindowTest" time="0.034"/>
+  <testcase name="standingStillShowsNoPace" classname="com.cardiomen.tracking.PaceWindowTest" time="0.0"/>
+  <testcase name="hiddenUntilEnoughData" classname="com.cardiomen.tracking.PaceWindowTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
