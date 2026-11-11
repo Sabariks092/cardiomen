@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index",
   "dependencies": {
+    "@cardiomen/contracts": "*",
     "@expo/metro-runtime": "~58.0.17",
     "@expo/vector-icons": "^15.0.2",
     "@maplibre/maplibre-react-native": "^11.5.1",
