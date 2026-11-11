@@ -51,6 +51,11 @@ class TrackingEngineModule : Module(), Engine.Listener {
     AsyncFunction("ackImported") { id: String -> engine.ackImported(id) }
     AsyncFunction("getEvents") { limit: Int -> engine.events(limit) }
 
+    AsyncFunction("setCoachConfig") { voice: Boolean, haptics: Boolean, autoPause: Boolean, intervalM: Double, unit: String ->
+      engine.setCoachConfig(CoachConfig(voice, haptics, autoPause, intervalM.coerceIn(200.0, 10_000.0), unit))
+    }
+    AsyncFunction("notify") { id: Int, title: String, body: String -> Notifier.progress(context, id, title, body) }
+
     AsyncFunction("requestIgnoreBatteryOptimizations") { requestBatteryExemption() }
     AsyncFunction("openAppSettings") {
       context.startActivity(

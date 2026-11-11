@@ -1,12 +1,25 @@
 import { StaticMapImageManager } from '@maplibre/maplibre-react-native';
-import { Skia, SkImage } from '@shopify/react-native-skia';
+import { Skia, SkImage, useFonts } from '@shopify/react-native-skia';
 import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildMapStyle } from '@/lib/mapStyle';
 import { LngLat } from '@/lib/track';
 import { MapLayer, ShareDoc } from './doc';
-import { mapCamera, mapLogicalSize } from './scene';
+import { BUNDLED_FONTS, mapCamera, mapLogicalSize } from './scene';
+
+/** Fonts for share images. Shipped with the app, because phones differ in which fonts they have. */
+export function useShareFonts() {
+  return useFonts({
+    [BUNDLED_FONTS.sans]: [
+      require('../../assets/fonts/Poppins-Light.ttf'),
+      require('../../assets/fonts/Poppins-Regular.ttf'),
+      require('../../assets/fonts/Poppins-SemiBold.ttf'),
+      require('../../assets/fonts/Poppins-Bold.ttf'),
+    ],
+    [BUNDLED_FONTS.mono]: [require('../../assets/fonts/jetbrains_mono_regular.ttf')],
+  });
+}
 
 async function loadImage(uri: string): Promise<SkImage | null> {
   const data = await Skia.Data.fromURI(uri);

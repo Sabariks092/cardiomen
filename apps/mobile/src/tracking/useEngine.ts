@@ -31,6 +31,30 @@ export function useEngineSnapshot() {
   return { snapshot, receivedAt, refresh };
 }
 
+/**
+ * Only the recording state (idle, ready, recording, paused) and type. Ignores the once-a-second
+ * tick, so screens that just need "is something recording?" don't re-render every second.
+ */
+export function useRecordingState() {
+  const [state, setState] = useState<{ state: EngineSnapshot['state']; type: EngineSnapshot['type'] } | null>(null);
+  const apply = useCallback((s: EngineSnapshot) => {
+    setState((prev) => (prev && prev.state === s.state && prev.type === s.type ? prev : { state: s.state, type: s.type }));
+  }, []);
+  const refresh = useCallback(() => TrackingEngine.getSnapshot().then(apply), [apply]);
+  useEffect(() => {
+    refresh();
+    const sub = TrackingEngine.addListener('onState', apply);
+    const app = AppState.addEventListener('change', (next) => {
+      if (next === 'active') refresh();
+    });
+    return () => {
+      sub.remove();
+      app.remove();
+    };
+  }, [apply, refresh]);
+  return { snapshot: state, refresh };
+}
+
 /** Timer value between engine ticks. Calculated from engine data, never counted here. */
 export function useActiveMs(snapshot: EngineSnapshot | null, receivedAt: { current: number }) {
   const [, force] = useState(0);

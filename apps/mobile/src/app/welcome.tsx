@@ -3,14 +3,14 @@ import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google
 import type { AuthResponse } from '@cardiomen/contracts';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { friendlyError, publicPost } from '@/auth/api';
 import { LOCAL_ONLY, startLocalSession, startSession } from '@/auth/session';
 import { requestSync } from '@/sync/worker';
 import { importFinished } from '@/tracking/importer';
 import { resetTo } from '@/ui/nav';
-import { Button, Screen, space, T } from '@/ui';
+import { Button, Enter, Screen, space, T } from '@/ui';
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
@@ -54,13 +54,23 @@ export default function Welcome() {
       }}
     >
       <View style={{ flex: 1, justifyContent: 'center', gap: space.sm }}>
-        <T v="hero" style={{ fontSize: 44 }}>
-          Cardiomen
-        </T>
-        <T muted>Walk. Jog. Run. Nothing else.</T>
+        <Enter>
+          <Image
+            source={require('../../assets/brand/logo.png')}
+            accessibilityLabel="Cardigo"
+            resizeMode="contain"
+            style={{ width: 180, height: 180, marginBottom: space.lg }}
+          />
+        </Enter>
+        <Enter i={2}>
+          <T v="label" muted style={{ letterSpacing: 2 }}>
+            Your cardio. Your progress.
+          </T>
+          <T muted style={{ marginTop: space.md }}>Walk. Jog. Run. Track, analyse, improve.</T>
+        </Enter>
       </View>
 
-      <View style={{ gap: space.md }}>
+      <Enter i={4} style={{ gap: space.md }}>
         {error ? <T v="small" center>{error}</T> : null}
         {LOCAL_ONLY ? (
           <>
@@ -81,13 +91,13 @@ export default function Welcome() {
               title="Continue with Google"
               loading={busy}
               onPress={google}
-              icon={<Ionicons name="logo-google" size={17} color="#000" />}
+              icon={<Ionicons name="logo-google" size={17} color="#FFF" />}
             />
             <Button title="Sign in with email" kind="glass" onPress={() => router.push('/sign-in')} />
             <Button title="Create an account" kind="ghost" onPress={() => router.push('/register')} />
           </>
         )}
-      </View>
+      </Enter>
     </Screen>
   );
 }

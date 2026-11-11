@@ -1,7 +1,9 @@
-import { ReactNode, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { colors, radius, space, T } from '@/ui';
+import Animated, { FadeIn, interpolateColor, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { colors, radius, shadow, space, spring, T, Tap } from '@/ui';
 
 /** The studio is the one place with color: you choose it for your image. */
 export const SWATCHES = [
@@ -126,17 +128,21 @@ export function Chips<V extends string>({
       {options.map((o) => {
         const on = o.value === value;
         return (
-          <Pressable
+          <Tap
             key={o.value}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
-            onPress={() => onChange(o.value)}
+            scaleTo={0.93}
+            onPress={() => {
+              if (!on) Haptics.selectionAsync().catch(() => undefined);
+              onChange(o.value);
+            }}
             style={[styles.chip, on && styles.chipOn]}
           >
-            <T v="small" style={on ? { color: colors.black, fontWeight: '600' } : undefined}>
+            <T v="small" style={on ? { color: colors.paper, fontWeight: '600' } : undefined}>
               {o.label}
             </T>
-          </Pressable>
+          </Tap>
         );
       })}
     </ScrollView>
@@ -144,26 +150,41 @@ export function Chips<V extends string>({
 }
 
 export function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  const on = useSharedValue(value ? 1 : 0);
+  useEffect(() => {
+    on.value = withSpring(value ? 1 : 0, spring);
+  }, [value, on]);
+  const track = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(on.value, [0, 1], ['rgba(0,0,0,0.1)', colors.ink]),
+  }));
+  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: on.value * 20 }] }));
   return (
     <Pressable
       accessibilityRole="switch"
       accessibilityLabel={label}
       accessibilityState={{ checked: value }}
-      onPress={() => onChange(!value)}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => undefined);
+        onChange(!value);
+      }}
       style={styles.toggleRow}
     >
       <T v="small" muted style={{ flex: 1 }}>
         {label}
       </T>
-      <View style={[styles.toggle, value && styles.toggleOn]}>
-        <View style={[styles.knob, value && styles.knobOn]} />
-      </View>
+      <Animated.View style={[styles.toggle, track]}>
+        <Animated.View style={[styles.knob, knob]} />
+      </Animated.View>
     </Pressable>
   );
 }
 
 export function Panel({ children }: { children: ReactNode }) {
-  return <View style={{ gap: space.md }}>{children}</View>;
+  return (
+    <Animated.View entering={FadeIn.duration(260)} style={styles.panel}>
+      {children}
+    </Animated.View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -183,42 +204,50 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: 'rgba(0,0,0,0.15)',
   },
-  swatchOn: { borderWidth: 3, borderColor: colors.white },
+  swatchOn: { borderWidth: 3, borderColor: colors.ink, transform: [{ scale: 1.12 }] },
   sliderHit: { height: 32, justifyContent: 'center' },
-  sliderTrack: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },
-  sliderFill: { height: 3, backgroundColor: colors.white },
+  sliderTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.1)', overflow: 'hidden' },
+  sliderFill: { height: 4, backgroundColor: colors.ink },
   thumb: {
     position: 'absolute',
-    width: 16,
-    height: 16,
-    marginLeft: -8,
-    top: 8,
-    borderRadius: 8,
-    backgroundColor: colors.white,
+    width: 22,
+    height: 22,
+    marginLeft: -11,
+    top: 5,
+    borderRadius: 11,
+    backgroundColor: colors.paper,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.12)',
+    boxShadow: '0px 3px 8px rgba(0,0,0,0.18)',
   },
   chip: {
-    minHeight: 34,
+    minHeight: 36,
     paddingHorizontal: space.md,
     justifyContent: 'center',
     borderRadius: radius.pill,
-    backgroundColor: colors.fieldBg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.hairline,
-  },
-  chipOn: { backgroundColor: colors.white },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36 },
-  toggle: {
-    width: 40,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.fieldBg,
+    backgroundColor: colors.paper,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
-    padding: 2,
   },
-  toggleOn: { backgroundColor: colors.white },
-  knob: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.textMuted },
-  knobOn: { backgroundColor: colors.black, alignSelf: 'flex-end' },
+  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink, boxShadow: shadow.button },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36 },
+  toggle: { width: 50, height: 30, borderRadius: 15, padding: 3 },
+  knob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.paper,
+    boxShadow: '0px 2px 5px rgba(0,0,0,0.22)',
+  },
+  panel: {
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.glassBorder,
+    boxShadow: shadow.card,
+  },
 });

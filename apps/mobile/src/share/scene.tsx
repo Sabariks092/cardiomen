@@ -13,6 +13,7 @@ import {
   RoundedRect,
   Skia,
   SkFont,
+  SkFontMgr,
   SkImage,
   BlurMask,
   Text,
@@ -54,8 +55,54 @@ const FONT_STYLE: Record<FontKey, { fontFamily: string; fontWeight?: FontWeight 
   mono: { fontFamily: 'monospace' },
 };
 
-function font(key: FontKey, size: number): SkFont {
-  return matchFont({ ...FONT_STYLE[key], fontSize: size });
+/** Fonts shipped with the app (see share/assets.ts), so text draws the same on every phone. */
+export const BUNDLED_FONTS = { sans: 'Poppins', mono: 'JetBrains Mono' } as const;
+
+const BUNDLED_STYLE: Record<FontKey, { family: string; weight: FontWeight }> = {
+  sans: { family: BUNDLED_FONTS.sans, weight: FontWeight.Normal },
+  light: { family: BUNDLED_FONTS.sans, weight: FontWeight.Light },
+  bold: { family: BUNDLED_FONTS.sans, weight: FontWeight.Bold },
+  condensed: { family: BUNDLED_FONTS.sans, weight: FontWeight.SemiBold },
+  serif: { family: BUNDLED_FONTS.sans, weight: FontWeight.Normal },
+  mono: { family: BUNDLED_FONTS.mono, weight: FontWeight.Normal },
+};
+
+// Faces the app doesn't ship. The phone's own is used when it has one.
+const SYSTEM_FIRST: FontKey[] = ['condensed', 'serif'];
+
+/**
+ * When a phone has no font by the asked name, Skia hands back an empty typeface and every glyph
+ * is silently invisible, which made metrics disappear. A font only counts if it measures text.
+ */
+function draws(f: SkFont | null): f is SkFont {
+  return !!f && f.measureText('0').width > 0;
+}
+
+function bundled(key: FontKey, size: number, fonts: SkFontMgr | null | undefined): SkFont | null {
+  if (!fonts) return null;
+  const { family, weight } = BUNDLED_STYLE[key];
+  const typeface = fonts.matchFamilyStyle(family, { weight, width: 5, slant: 0 });
+  return typeface ? Skia.Font(typeface, size) : null;
+}
+
+function system(key: FontKey, size: number): SkFont | null {
+  try {
+    return matchFont({ ...FONT_STYLE[key], fontSize: size });
+  } catch {
+    return null;
+  }
+}
+
+function font(key: FontKey, size: number, fonts?: SkFontMgr | null): SkFont {
+  const order = SYSTEM_FIRST.includes(key)
+    ? [() => system(key, size), () => bundled(key, size, fonts)]
+    : [() => bundled(key, size, fonts), () => system(key, size)];
+  for (const pick of order) {
+    const f = pick();
+    if (draws(f)) return f;
+  }
+  const fallback = system('sans', size);
+  return draws(fallback) ? fallback : matchFont({ fontSize: size });
 }
 
 function textWidth(f: SkFont, s: string) {
@@ -65,6 +112,8 @@ function textWidth(f: SkFont, s: string) {
 export interface ShareAssets {
   mapImages: Record<string, SkImage | null>;
   photos: Record<string, SkImage | null>;
+  /** Bundled fonts. Null while they load; text then uses the phone's fonts. */
+  fonts?: SkFontMgr | null;
 }
 
 export interface ShareData {
@@ -281,7 +330,17 @@ function alignX(align: Align, x: number, w: number, tw: number) {
   return x;
 }
 
-function MetricsPart({ layer, doc, data }: { layer: MetricsLayer; doc: ShareDoc; data: ShareData }) {
+function MetricsPart({
+  layer,
+  doc,
+  data,
+  fonts,
+}: {
+  layer: MetricsLayer;
+  doc: ShareDoc;
+  data: ShareData;
+  fonts?: SkFontMgr | null;
+}) {
   const box = px(layer.frame, doc);
   const items = layer.items.filter((i) => i.enabled);
   if (items.length === 0) return null;
@@ -290,9 +349,9 @@ function MetricsPart({ layer, doc, data }: { layer: MetricsLayer; doc: ShareDoc;
   const rows = Math.ceil(items.length / cols);
   const cellW = box.w / cols;
   const cellH = box.h / rows;
-  const valueFont = font(layer.font, layer.size);
-  const unitFont = font(layer.font, layer.size * 0.42);
-  const labelFont = font('sans', Math.max(layer.size * 0.3, 16));
+  const valueFont = font(layer.font, layer.size, fonts);
+  const unitFont = font(layer.font, layer.size * 0.42, fonts);
+  const labelFont = font('sans', Math.max(layer.size * 0.3, 16), fonts);
 
   const shadeTop = Math.max(0, box.y - 160);
   return (
@@ -336,9 +395,9 @@ function MetricsPart({ layer, doc, data }: { layer: MetricsLayer; doc: ShareDoc;
   );
 }
 
-function TextPart({ layer, doc }: { layer: TextLayer; doc: ShareDoc }) {
+function TextPart({ layer, doc, fonts }: { layer: TextLayer; doc: ShareDoc; fonts?: SkFontMgr | null }) {
   const box = px(layer.frame, doc);
-  const f = font(layer.font, layer.size);
+  const f = font(layer.font, layer.size, fonts);
   const lines = layer.text.split('\n');
   return (
     <Group opacity={layer.opacity}>
@@ -417,11 +476,11 @@ export function ShareScene({
             ) : null;
           }
           case 'metrics':
-            return <MetricsPart key={layer.id} layer={layer} doc={doc} data={data} />;
+            return <MetricsPart key={layer.id} layer={layer} doc={doc} data={data} fonts={assets.fonts} />;
           case 'collage':
             return <CollagePart key={layer.id} layer={layer} doc={doc} assets={assets} />;
           case 'text':
-            return <TextPart key={layer.id} layer={layer} doc={doc} />;
+            return <TextPart key={layer.id} layer={layer} doc={doc} fonts={assets.fonts} />;
         }
       })}
     </Group>
@@ -432,15 +491,9 @@ export function SelectionOutline({ frame, doc, scale }: { frame: Frame; doc: Sha
   const box = useMemo(() => px(frame, doc), [frame, doc]);
   return (
     <Group transform={[{ scale }]}>
-      <Rect
-        x={box.x}
-        y={box.y}
-        width={box.w}
-        height={box.h}
-        style="stroke"
-        strokeWidth={2 / scale}
-        color="rgba(255,255,255,0.9)"
-      />
+      {/* Dark outside, light inside, so the selection shows on any image. */}
+      <Rect x={box.x} y={box.y} width={box.w} height={box.h} style="stroke" strokeWidth={4 / scale} color="rgba(0,0,0,0.75)" />
+      <Rect x={box.x} y={box.y} width={box.w} height={box.h} style="stroke" strokeWidth={1.5 / scale} color="rgba(255,255,255,0.95)" />
     </Group>
   );
 }

@@ -4,6 +4,7 @@ import { currentSession } from '@/auth/session';
 import { getDb, hasDb, notifyChange, transaction } from '@/db';
 import { localDateOf } from '@/lib/format';
 import { bboxOf, encodeTrack, previewOf, toSegments } from '@/lib/track';
+import { evaluateProgress } from '@/progress/evaluate';
 
 const PAGE = 2000;
 
@@ -83,7 +84,11 @@ export function importFinished(): Promise<void> {
       const me = currentSession()?.user.id;
       const finished = (await TrackingEngine.listFinished()).filter((s) => s.ownerId === me);
       for (const s of finished) await importSession(s);
-      if (finished.length > 0) notifyChange();
+      if (finished.length > 0) {
+        notifyChange();
+        // Goals, records and milestones from the new activities. Never blocks the import.
+        evaluateProgress().catch(() => undefined);
+      }
     } finally {
       running = null;
     }

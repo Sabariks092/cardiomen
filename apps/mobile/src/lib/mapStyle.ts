@@ -20,11 +20,14 @@ export const MONO_DARK: MapColors = {
   label: '#8A8A8A',
 };
 
+/** The app's own maps: light, so they sit with the white interface. */
+export const MONO_LIGHT: MapColors = { land: '#F4F4F4', water: '#D8D8D8', road: '#FFFFFF', park: '#EAEAEA', building: '#E6E6E6', label: '#666666' };
+
 export const MAP_THEMES: { name: string; colors: MapColors }[] = [
   { name: 'Black', colors: MONO_DARK },
   {
     name: 'White',
-    colors: { land: '#F4F4F4', water: '#D8D8D8', road: '#FFFFFF', park: '#EAEAEA', building: '#E6E6E6', label: '#666666' },
+    colors: MONO_LIGHT,
   },
   {
     name: 'Night',

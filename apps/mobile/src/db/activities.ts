@@ -63,6 +63,75 @@ export async function listActivities(type: ActivityType | 'all', localDate?: str
   return rows.map(toActivity);
 }
 
+export type ActivitySort = 'newest' | 'oldest' | 'longest' | 'shortest' | 'fastest';
+
+export interface ActivityQuery {
+  type: ActivityType | 'all';
+  from?: string | null;
+  to?: string | null;
+  search?: string;
+  sort?: ActivitySort;
+  /** Show the recently deleted list instead, so a deletion can be undone. */
+  deleted?: boolean;
+}
+
+const ORDER: Record<ActivitySort, string> = {
+  newest: 'a.startedAt DESC',
+  oldest: 'a.startedAt ASC',
+  longest: 'a.distanceM DESC, a.startedAt DESC',
+  shortest: 'a.distanceM ASC, a.startedAt DESC',
+  // Activities too short for a meaningful pace go last.
+  fastest: 'CASE WHEN a.distanceM >= 1000 THEN a.activeMs / a.distanceM ELSE 1e18 END ASC, a.startedAt DESC',
+};
+
+/** Search, filter and sort in SQL, so long histories stay quick. */
+export async function queryActivities(q: ActivityQuery): Promise<Activity[]> {
+  const where = [q.deleted ? 'a.deletedAt IS NOT NULL' : 'a.deletedAt IS NULL'];
+  const params: (string | number)[] = [];
+  if (q.type !== 'all') {
+    where.push('a.type = ?');
+    params.push(q.type);
+  }
+  if (q.from) {
+    where.push('a.localDate >= ?');
+    params.push(q.from);
+  }
+  if (q.to) {
+    where.push('a.localDate <= ?');
+    params.push(q.to);
+  }
+  const term = q.search?.trim().toLowerCase();
+  if (term) {
+    where.push("(LOWER(COALESCE(a.title, '')) LIKE ? OR LOWER(COALESCE(a.note, '')) LIKE ? OR a.type LIKE ? OR a.localDate LIKE ?)");
+    const like = `%${term.replace(/[%_]/g, '')}%`;
+    params.push(like, like, like, like);
+  }
+  const order = q.deleted ? 'a.deletedAt DESC' : ORDER[q.sort ?? 'newest'];
+  const rows = await getDb().getAllAsync<ActivityRow>(`${SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order}`, params);
+  return rows.map(toActivity);
+}
+
+export async function recentActivities(limit: number): Promise<Activity[]> {
+  const rows = await getDb().getAllAsync<ActivityRow>(
+    `${SELECT} WHERE a.deletedAt IS NULL ORDER BY a.startedAt DESC LIMIT ?`,
+    [limit],
+  );
+  return rows.map(toActivity);
+}
+
+export type ActivityLiteRow = Pick<
+  Activity,
+  'id' | 'type' | 'title' | 'note' | 'startedAt' | 'tzOffsetMin' | 'localDate' | 'activeMs' | 'elapsedMs' | 'distanceM' | 'steps'
+>;
+
+/** Every activity's numbers without the route, for analytics. */
+export async function allActivitiesLite(): Promise<ActivityLiteRow[]> {
+  return getDb().getAllAsync<ActivityLiteRow>(
+    `SELECT id, type, title, note, startedAt, tzOffsetMin, localDate, activeMs, elapsedMs, distanceM, steps
+     FROM activities WHERE deletedAt IS NULL ORDER BY startedAt DESC`,
+  );
+}
+
 export async function getActivity(id: string, db: SQLiteDatabase = getDb()): Promise<Activity | null> {
   const row = await db.getFirstAsync<ActivityRow>(`${SELECT} WHERE a.id = ?`, [id]);
   return row ? toActivity(row) : null;
@@ -137,6 +206,25 @@ export async function setDeleted(id: string, deleted: boolean) {
     await enqueue('activity', id);
   });
   notifyChange();
+}
+
+/** Marks every activity deleted, in one transaction, and queues each deletion for sync. */
+export async function deleteAllActivities(): Promise<number> {
+  const db = getDb();
+  let count = 0;
+  await transaction(db, async () => {
+    const rows = await db.getAllAsync<{ id: string; updatedAt: number }>(
+      'SELECT id, updatedAt FROM activities WHERE deletedAt IS NULL',
+    );
+    for (const r of rows) {
+      const now = Math.max(Date.now(), r.updatedAt + 1);
+      await db.runAsync('UPDATE activities SET deletedAt = ?, updatedAt = ? WHERE id = ?', [now, now, r.id]);
+      await enqueue('activity', r.id);
+    }
+    count = rows.length;
+  });
+  notifyChange();
+  return count;
 }
 
 export { enqueue as enqueueOutbox };

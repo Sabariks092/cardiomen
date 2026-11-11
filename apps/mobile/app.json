@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Cardiomen",
+    "name": "Cardigo",
     "slug": "cardiomen",
     "scheme": "cardiomen",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#000000",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFFFFF",
     "android": {
       "package": "com.cardiomen.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -42,7 +42,7 @@
       [
         "expo-status-bar",
         {
-          "style": "light"
+          "style": "dark"
         }
       ],
       "expo-sqlite",
@@ -62,12 +62,23 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/splash-icon.png",
           "imageWidth": 120
         }
       ],
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Poppins-Light.ttf",
+            "./assets/fonts/Poppins-Regular.ttf",
+            "./assets/fonts/Poppins-Medium.ttf",
+            "./assets/fonts/Poppins-SemiBold.ttf",
+            "./assets/fonts/Poppins-Bold.ttf"
+          ]
+        }
+      ],
       "@maplibre/maplibre-react-native",
       "@react-native-google-signin/google-signin",
       [
@@ -85,7 +96,8 @@
           "savePhotosPermission": "Save your activity image to the gallery.",
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "./plugins/withShortNativeBuildPath"
     ],
     "experiments": {
       "typedRoutes": false

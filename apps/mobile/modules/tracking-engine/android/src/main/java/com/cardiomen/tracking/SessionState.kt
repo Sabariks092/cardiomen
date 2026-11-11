@@ -11,6 +11,8 @@ object PauseReason {
   const val APP_UPDATED = "app_updated"
   const val PERMISSION_REVOKED = "permission_revoked"
   const val UNKNOWN = "unknown"
+  /** Paused by auto-pause while standing still. Resumes by itself once you move. */
+  const val AUTO = "auto"
 }
 
 /** Only the user can end an activity: the only ways into FINISHED are the Engine.stop() command. */
