@@ -11,7 +11,6 @@ apps/mobile/android/
 apps/mobile/ios/
 apps/api/src/generated/
 *.tsbuildinfo
-apk/
 
 # Native build output
 apps/mobile/modules/*/android/build/
