@@ -5,7 +5,7 @@ import { colors } from '@/ui/theme';
 export function Map({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[{ alignItems: 'center', justifyContent: 'center' }, style, { backgroundColor: colors.fieldBg }]}>
-      <Text style={{ color: colors.white, opacity: 0.5 }}>Map is only available in the mobile app</Text>
+      <Text style={{ color: colors.ink, opacity: 0.5 }}>Map is only available in the mobile app</Text>
     </View>
   );
 }

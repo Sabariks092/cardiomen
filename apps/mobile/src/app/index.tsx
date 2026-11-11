@@ -43,7 +43,7 @@ export default function Gate() {
   if (target) return <Redirect href={target} />;
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator color={colors.white} />
+      <ActivityIndicator color={colors.ink} />
     </View>
   );
 }

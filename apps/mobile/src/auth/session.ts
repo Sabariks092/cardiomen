@@ -97,6 +97,14 @@ export async function startSession(auth: AuthResponse): Promise<Session> {
   return session;
 }
 
+/** After the server accepts a profile change, keep this phone's copy of the user in step. */
+export async function updateStoredUser(user: UserDto) {
+  const stored = await readStored();
+  if (!stored || stored.user.id !== user.id || !session) return;
+  await SecureStore.setItemAsync(KEY_SESSION, JSON.stringify({ ...stored, user }));
+  session = { ...session, user };
+}
+
 export async function endSession() {
   await SecureStore.deleteItemAsync(KEY_SESSION);
   generation += 1;

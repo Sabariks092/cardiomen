@@ -182,7 +182,10 @@ class TrackingService : Service(), Engine.ServiceHook, SensorEventListener {
   // ---------- Engine.ServiceHook ----------
 
   override fun onEngineStateChanged() {
-    updateWakeLock(engine.currentSession()?.state == SessionState.ACTIVE)
+    val session = engine.currentSession()
+    // Auto-pause keeps listening, so it can resume by itself with the screen off.
+    val autoPaused = session?.state == SessionState.PAUSED && session.pauseReason == PauseReason.AUTO
+    updateWakeLock(session?.state == SessionState.ACTIVE || autoPaused)
     refreshNotification()
   }
 

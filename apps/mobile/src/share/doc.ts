@@ -341,6 +341,33 @@ export function defaultTextLayer(): TextLayer {
   };
 }
 
+/** The Cardigo wordmark, top left. An ordinary text layer, so it can be moved, hidden or removed. */
+export function brandLayer(): TextLayer {
+  return {
+    ...defaultTextLayer(),
+    id: newLayerId('brand'),
+    frame: { x: 0.06, y: 0.04, w: 0.4, h: 0.06 },
+    text: 'CARDIGO',
+    font: 'bold',
+    size: 34,
+  };
+}
+
+/** Activity type and date, top right, without labels. */
+export function headerMetricsLayer(): MetricsLayer {
+  const base = defaultMetricsLayer();
+  return {
+    ...base,
+    id: newLayerId('header'),
+    frame: { x: 0.42, y: 0.04, w: 0.52, h: 0.06 },
+    items: base.items.map((i) => ({ ...i, enabled: i.key === 'type' || i.key === 'date' })),
+    size: 30,
+    font: 'sans',
+    showLabels: false,
+    align: 'end',
+  };
+}
+
 export function defaultDoc(): ShareDoc {
   return {
     version: 1,
@@ -348,7 +375,7 @@ export function defaultDoc(): ShareDoc {
     exportWidth: 1080,
     format: 'png',
     background: { kind: 'solid', color: '#000000' },
-    layers: [defaultMapLayer(), defaultRouteLayer(), defaultMetricsLayer()],
+    layers: [defaultMapLayer(), defaultRouteLayer(), defaultMetricsLayer(), headerMetricsLayer(), brandLayer()],
     trimEndsM: 0,
   };
 }

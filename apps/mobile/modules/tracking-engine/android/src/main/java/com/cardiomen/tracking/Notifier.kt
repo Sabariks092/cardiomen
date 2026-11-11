@@ -16,8 +16,10 @@ import java.util.Locale
 object Notifier {
   private const val CHANNEL_LIVE = "tracking_live"
   private const val CHANNEL_ALERT = "tracking_alert"
+  private const val CHANNEL_PROGRESS = "progress"
   const val ID_LIVE = 7301
   private const val ID_ALERT = 7302
+  private const val ID_PROGRESS_BASE = 8000
 
   fun ensureChannels(context: Context) {
     val manager = context.getSystemService(NotificationManager::class.java)
@@ -32,6 +34,31 @@ object Notifier {
         description = "Tells you when an activity was paused by an interruption"
       },
     )
+    manager.createNotificationChannel(
+      NotificationChannel(CHANNEL_PROGRESS, "Goals and records", NotificationManager.IMPORTANCE_DEFAULT).apply {
+        description = "Goals reached, personal records and weekly summaries"
+      },
+    )
+  }
+
+  /** Goals, records and summaries. Silently skipped without notification permission. */
+  fun progress(context: Context, id: Int, title: String, body: String) {
+    if (Build.VERSION.SDK_INT >= 33 &&
+      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+      PackageManager.PERMISSION_GRANTED
+    ) {
+      return
+    }
+    ensureChannels(context)
+    val notification = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
+      .setSmallIcon(android.R.drawable.star_on)
+      .setContentTitle(title)
+      .setContentText(body)
+      .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+      .setAutoCancel(true)
+      .setContentIntent(openApp(context))
+      .build()
+    context.getSystemService(NotificationManager::class.java).notify(ID_PROGRESS_BASE + (id and 0xFFF), notification)
   }
 
   fun live(context: Context, s: Session?, activeMs: Long): Notification {

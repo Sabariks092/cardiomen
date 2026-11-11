@@ -52,14 +52,43 @@ export function localDateOf(utcMs: number, tzOffsetMin: number): string {
   return new Date(utcMs + tzOffsetMin * 60000).toISOString().slice(0, 10);
 }
 
-export function formatActivityDate(utcMs: number, tzOffsetMin: number): string {
+/** Day before month ("Wed, 11 Nov") or month before day ("Wed, Nov 11"). Set from Settings. */
+let dateOrder: 'dmy' | 'mdy' = 'dmy';
+
+export function setDateOrder(order: 'dmy' | 'mdy') {
+  dateOrder = order;
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** "Wed, 11 Nov" from a local date like 2026-11-11, in the chosen order. */
+export function formatDay(localDate: string, withYear = false): string {
+  const d = new Date(`${localDate}T00:00:00Z`);
+  const day = d.getUTCDate();
+  const month = MONTH_SHORT[d.getUTCMonth()];
+  const core = dateOrder === 'mdy' ? `${month} ${day}` : `${day} ${month}`;
+  return `${WEEKDAY_SHORT[d.getUTCDay()]}, ${core}${withYear ? ` ${d.getUTCFullYear()}` : ''}`;
+}
+
+/** "7:05 AM" where the activity happened. */
+export function formatStartTime(utcMs: number, tzOffsetMin: number): string {
   const d = new Date(utcMs + tzOffsetMin * 60000);
-  const date = d.toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-  const time = d.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' });
-  return `${date}, ${time}`;
+  const h = d.getUTCHours();
+  const m = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${h % 12 === 0 ? 12 : h % 12}:${m} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+export function formatActivityDate(utcMs: number, tzOffsetMin: number): string {
+  return `${formatDay(localDateOf(utcMs, tzOffsetMin))}, ${formatStartTime(utcMs, tzOffsetMin)}`;
+}
+
+/** km/h or mph from meters per second. */
+export function formatSpeed(mps: number | null | undefined, units: Units = 'km'): string {
+  if (mps == null || !Number.isFinite(mps) || mps < 0) return '--';
+  return (units === 'mi' ? mps * 2.236936 : mps * 3.6).toFixed(1);
+}
+
+export function speedUnit(units: Units = 'km') {
+  return units === 'mi' ? 'mph' : 'km/h';
 }

@@ -49,6 +49,11 @@ class Engine private constructor(context: Context) {
   private var lastNotificationElapsed = 0L
   private var ticksSinceFlush = 0
 
+  private var coach = CoachConfig.load(app)
+  private val milestones = MilestoneTracker()
+  private val autoPause = AutoPauseDetector()
+  private val voice = CoachVoice(app)
+
   private var service: ServiceHook? = null
   private val listeners = HashSet<Listener>()
 
@@ -106,8 +111,10 @@ class Engine private constructor(context: Context) {
     db.insertSession(s)
     session = s
     resetSegmentTools()
+    milestones.reset()
     tally = StepTally()
     buffer.clear()
+    if (coach.voice) voice.prepare()
     handler.removeCallbacks(armTimeout)
     handler.postDelayed(armTimeout, ARM_TIMEOUT_MS)
     emitState()
@@ -196,6 +203,13 @@ class Engine private constructor(context: Context) {
     db.commit(s, emptyList())
   }
 
+  /** Voice, vibration and auto-pause settings. Stored, so they hold for background recordings. */
+  fun setCoachConfig(config: CoachConfig): Unit = call {
+    coach = config
+    CoachConfig.save(app, config)
+    if (config.voice) voice.prepare()
+  }
+
   // ---------- Recovery ----------
 
   /**
@@ -278,6 +292,14 @@ class Engine private constructor(context: Context) {
       lastFix = fix
       lastFixElapsed = SystemClock.elapsedRealtime()
       val s = session ?: return@post
+      if (s.state == SessionState.PAUSED && s.pauseReason == PauseReason.AUTO && coach.autoPause) {
+        if (!autoPause.shouldResume(fix)) return@post
+        val anchor = autoPause.pausedAnchor()
+        resume()
+        // Count the few meters walked before the resume was certain.
+        anchor?.let { filter.process(it) }
+        cue("Resumed", longArrayOf(0, 60))
+      }
       if (s.state != SessionState.ACTIVE || !segmentOpen) return@post
 
       val result = filter.process(fix)
@@ -285,6 +307,8 @@ class Engine private constructor(context: Context) {
       pace.add(activeMsNow(s), s.distanceM)
       buffer.add(PointRow(s.nextPointSeq++, s.segmentNo, fix, result.accepted))
       emitPoint(s, fix, result.accepted)
+      if (coach.autoPause) autoPause.onActiveFix(SystemClock.elapsedRealtime(), fix, s.distanceM)
+      checkMilestone(s)
     }
   }
 
@@ -335,6 +359,7 @@ class Engine private constructor(context: Context) {
     segmentStartElapsed = SystemClock.elapsedRealtime()
     segmentOpen = true
     resetSegmentTools()
+    autoPause.onSegmentStart(segmentStartElapsed, s.distanceM)
     tally.total = s.steps ?: tally.total
     tally.onSegmentStart()
     db.commit(s, emptyList(), listOf(eventKind to detail))
@@ -386,12 +411,40 @@ class Engine private constructor(context: Context) {
       }
       armDeadMan(force = false)
       val now = SystemClock.elapsedRealtime()
+      if (coach.autoPause && autoPause.shouldPause(now, s.distanceM)) {
+        pause(PauseReason.AUTO)
+        cue("Auto paused", longArrayOf(0, 60, 80, 60))
+        return
+      }
       if (now - lastNotificationElapsed >= NOTIFICATION_MS) {
         lastNotificationElapsed = now
         service?.refreshNotification()
       }
       emitTick()
       handler.postDelayed(this, TICK_MS)
+    }
+  }
+
+  private fun checkMilestone(s: Session) {
+    if (!coach.voice && !coach.haptics) return
+    val reached = milestones.check(s.id, s.distanceM, coach.intervalM) ?: return
+    try {
+      if (coach.haptics) voice.vibrate()
+      if (coach.voice) {
+        voice.speak(CoachVoice.milestoneText(reached, coach.intervalM, coach.unit, activeMsNow(s), s.distanceM))
+      }
+    } catch (e: Exception) {
+      // Feedback is a nicety. It must never disturb the recording.
+      android.util.Log.w("CardiomenEngine", "coach failed", e)
+    }
+  }
+
+  private fun cue(text: String, pattern: LongArray) {
+    try {
+      if (coach.haptics) voice.vibrate(pattern)
+      if (coach.voice) voice.speak(text)
+    } catch (e: Exception) {
+      android.util.Log.w("CardiomenEngine", "coach failed", e)
     }
   }
 

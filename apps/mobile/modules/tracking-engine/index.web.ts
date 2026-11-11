@@ -50,6 +50,8 @@ class TrackingEngineWeb extends NativeModule<Events> {
   async getEvents(): Promise<EngineEvent[]> {
     return [];
   }
+  async setCoachConfig() {}
+  async notify() {}
   async requestIgnoreBatteryOptimizations() {}
   async openAppSettings() {}
 }

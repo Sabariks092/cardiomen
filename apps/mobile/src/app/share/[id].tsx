@@ -16,7 +16,7 @@ import { enqueueOutbox, getActivity, getTrackBlob } from '@/db/activities';
 import { loadSettings, saveSetting, useSettings } from '@/db/settings';
 import { MAP_THEMES, MapColors } from '@/lib/mapStyle';
 import { decodeTrack, LngLat, previewOf, toSegments, trimEnds } from '@/lib/track';
-import { importPhoto, renderMapImage, useMapImages, usePhotoImages } from '@/share/assets';
+import { importPhoto, renderMapImage, useMapImages, usePhotoImages, useShareFonts } from '@/share/assets';
 import { Chips, ColorPicker, Panel, Slider, Toggle } from '@/share/controls';
 import {
   applyStyle,
@@ -57,7 +57,7 @@ import {
 import { createHistory, History, push, redo, undo } from '@/share/history';
 import { SelectionOutline, ShareData, ShareScene } from '@/share/scene';
 import { requestSync } from '@/sync/worker';
-import { Button, colors, Field, radius, Screen, space, T } from '@/ui';
+import { Button, colors, Field, InkGloss, radius, Screen, shadow, space, T, Tap } from '@/ui';
 
 type Tab = 'style' | 'format' | 'layers' | 'background' | 'map' | 'route' | 'metrics' | 'photos' | 'text' | 'presets';
 
@@ -124,7 +124,7 @@ export default function ShareStudio() {
           // Format tab can still change it for any one image.
           Alert.alert(
             'Hide where you start and finish?',
-            'Routes often begin at home. Cardiomen can leave the first and last 200 m out of shared images.',
+            'Routes often begin at home. Cardigo can leave the first and last 200 m out of shared images.',
             [
               { text: 'Show full route', onPress: () => saveSetting('shareTrim', false) },
               {
@@ -216,7 +216,8 @@ export default function ShareStudio() {
     lines,
   );
   const photos = usePhotoImages(doc ?? defaultDocStable);
-  const assets = useMemo(() => ({ mapImages, photos }), [mapImages, photos]);
+  const fonts = useShareFonts();
+  const assets = useMemo(() => ({ mapImages, photos, fonts }), [mapImages, photos, fonts]);
 
   // ---------- Canvas gestures ----------
   const previewMaxH = screenH * 0.46;
@@ -366,7 +367,7 @@ export default function ShareStudio() {
     const data: ShareData = { activity, lines, units };
     const element = (w: number, s: number) => {
       void w;
-      return <ShareScene doc={doc} assets={{ mapImages: exportMaps, photos }} data={data} scale={s} />;
+      return <ShareScene doc={doc} assets={{ mapImages: exportMaps, photos, fonts }} data={data} scale={s} />;
     };
 
     let width = doc.exportWidth as number;
@@ -614,27 +615,29 @@ export default function ShareStudio() {
   return (
     <Screen>
       <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} onPress={closeStudio} style={styles.icon}>
-          <Ionicons name="close" size={22} color={colors.white} />
-        </Pressable>
-        <Pressable
+        <Tap accessibilityRole="button" accessibilityLabel="Close" scaleTo={0.85} hitSlop={8} onPress={closeStudio} style={styles.icon}>
+          <Ionicons name="close" size={22} color={colors.ink} />
+        </Tap>
+        <Tap
           accessibilityRole="button"
           accessibilityLabel="Undo"
+          scaleTo={0.85}
           disabled={history.past.length === 0}
           onPress={() => setHistory(undo(history))}
           style={styles.icon}
         >
-          <Ionicons name="arrow-undo-outline" size={20} color={history.past.length ? colors.white : colors.textFaint} />
-        </Pressable>
-        <Pressable
+          <Ionicons name="arrow-undo-outline" size={20} color={history.past.length ? colors.ink : colors.textFaint} />
+        </Tap>
+        <Tap
           accessibilityRole="button"
           accessibilityLabel="Redo"
+          scaleTo={0.85}
           disabled={history.future.length === 0}
           onPress={() => setHistory(redo(history))}
           style={styles.icon}
         >
-          <Ionicons name="arrow-redo-outline" size={20} color={history.future.length ? colors.white : colors.textFaint} />
-        </Pressable>
+          <Ionicons name="arrow-redo-outline" size={20} color={history.future.length ? colors.ink : colors.textFaint} />
+        </Tap>
         <View style={{ flex: 1 }} />
         <Button title="Save" kind="glass" loading={busy === 'save'} disabled={!!busy || mapLoading} onPress={doSave} style={styles.action} />
         <Button title="Share" loading={busy === 'share'} disabled={!!busy || mapLoading} onPress={doShare} style={styles.action} />
@@ -642,7 +645,7 @@ export default function ShareStudio() {
 
       <View style={[styles.previewArea, { height: previewMaxH }]}>
         <GestureDetector gesture={gesture}>
-          <View style={{ width: previewW, height: previewH }} collapsable={false}>
+          <View style={[styles.preview, { width: previewW, height: previewH }]} collapsable={false}>
             <Canvas style={{ width: previewW, height: previewH }}>
               {doc.background.kind === 'transparent' ? <Checker w={previewW} h={previewH} /> : null}
               <ShareScene doc={doc} assets={assets} data={data} scale={previewScale} />
@@ -680,18 +683,21 @@ export default function ShareStudio() {
         {TABS.map((t) => {
           const on = t.id === tab;
           return (
-            <Pressable
+            <Tap
               key={t.id}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
+              scaleTo={0.92}
+              haptic={!on}
               onPress={() => setTab(t.id)}
               style={[styles.tab, on && styles.tabOn]}
             >
-              <Ionicons name={t.icon} size={16} color={on ? colors.black : colors.textMuted} />
-              <T v="small" style={on ? { color: colors.black, fontWeight: '600' } : { color: colors.textMuted }}>
+              {on ? <InkGloss r={radius.pill} /> : null}
+              <Ionicons name={t.icon} size={16} color={on ? colors.paper : colors.textMuted} />
+              <T v="small" style={on ? { color: colors.paper, fontWeight: '600' } : { color: colors.textMuted }}>
                 {t.label}
               </T>
-            </Pressable>
+            </Tap>
           );
         })}
       </ScrollView>
@@ -706,13 +712,13 @@ export default function ShareStudio() {
             <Button
               title="Upload from device"
               onPress={() => pickPhotos('device')}
-              icon={<Ionicons name="images-outline" size={18} color={colors.black} />}
+              icon={<Ionicons name="images-outline" size={18} color={colors.paper} />}
             />
             <Button
               title="Take a photo"
               kind="glass"
               onPress={() => pickPhotos('camera')}
-              icon={<Ionicons name="camera-outline" size={18} color={colors.white} />}
+              icon={<Ionicons name="camera-outline" size={18} color={colors.ink} />}
             />
             <T v="small" muted>
               Your photo becomes the background, with your route outline and metrics on top. Tap and drag the
@@ -1151,13 +1157,13 @@ export default function ShareStudio() {
               title={collage ? `From device (${collage.cells.length}/${MAX_PHOTOS})` : 'Upload from device'}
               kind="glass"
               onPress={() => pickPhotos('device')}
-              icon={<Ionicons name="images-outline" size={17} color={colors.white} />}
+              icon={<Ionicons name="images-outline" size={17} color={colors.ink} />}
             />
             <Button
               title="Take a photo"
               kind="glass"
               onPress={() => pickPhotos('camera')}
-              icon={<Ionicons name="camera-outline" size={17} color={colors.white} />}
+              icon={<Ionicons name="camera-outline" size={17} color={colors.ink} />}
             />
             {collage ? (
               <>
@@ -1291,7 +1297,7 @@ function IconButton({
 }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} hitSlop={4} onPress={onPress} style={styles.smallIcon}>
-      <Ionicons name={icon} size={17} color={disabled ? colors.textFaint : colors.white} />
+      <Ionicons name={icon} size={17} color={disabled ? colors.textFaint : colors.ink} />
     </Pressable>
   );
 }
@@ -1307,9 +1313,9 @@ function Checker({ w, h }: { w: number; h: number }) {
   }
   return (
     <Group>
-      <Rect x={0} y={0} width={w} height={h} color="#2A2A2A" />
+      <Rect x={0} y={0} width={w} height={h} color="#FFFFFF" />
       {squares.map(([x, y]) => (
-        <Rect key={`${x}-${y}`} x={x} y={y} width={size} height={size} color="#1A1A1A" />
+        <Rect key={`${x}-${y}`} x={x} y={y} width={size} height={size} color="#E4E4E7" />
       ))}
     </Group>
   );
@@ -1321,8 +1327,9 @@ const styles = StyleSheet.create({
   smallIcon: { width: 30, height: 34, alignItems: 'center', justifyContent: 'center' },
   action: { minHeight: 40, paddingHorizontal: space.lg, marginLeft: space.xs },
   previewArea: { alignItems: 'center', justifyContent: 'center' },
+  preview: { boxShadow: shadow.raised, backgroundColor: colors.bgSoft },
   hintRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 34 },
-  tabs: { flexGrow: 0, flexShrink: 0, height: 44 },
+  tabs: { flexGrow: 0, flexShrink: 0, height: 52 },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1330,9 +1337,11 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: space.md,
     borderRadius: radius.pill,
-    backgroundColor: colors.fieldBg,
+    backgroundColor: colors.paper,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.glassBorder,
   },
-  tabOn: { backgroundColor: colors.white },
+  tabOn: { backgroundColor: colors.ink, borderColor: colors.ink, boxShadow: shadow.button },
   customRatio: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   ratioInput: {
     width: 54,
@@ -1349,9 +1358,9 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: space.md,
     borderRadius: radius.md,
-    backgroundColor: colors.fieldBg,
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: colors.paper,
+    borderWidth: 1,
     borderColor: colors.hairline,
   },
-  layerRowOn: { borderColor: colors.white },
+  layerRowOn: { borderColor: colors.ink, boxShadow: shadow.card },
 });

@@ -62,6 +62,42 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );`,
   `ALTER TABLE outbox ADD COLUMN generation INTEGER NOT NULL DEFAULT 0;`,
+  // 3: Cardigo. These tables live on this phone only. activity_stats is a cache that can always be
+  // rebuilt from the stored tracks.
+  `CREATE TABLE goals (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    target REAL NOT NULL,
+    activityType TEXT,
+    paused INTEGER NOT NULL DEFAULT 0,
+    createdAt INTEGER NOT NULL,
+    achievedPeriod TEXT,
+    deletedAt INTEGER
+  );
+  CREATE TABLE saved_routes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    activityId TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    deletedAt INTEGER
+  );
+  CREATE TABLE notifications (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    dedupeKey TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    activityId TEXT,
+    createdAt INTEGER NOT NULL,
+    readAt INTEGER
+  );
+  CREATE TABLE activity_stats (
+    activityId TEXT PRIMARY KEY,
+    bestKmMs INTEGER,
+    maxSpeedMps REAL,
+    elevationGainM REAL,
+    computedAt INTEGER NOT NULL
+  );`,
 ];
 
 let current: { name: string; db: SQLiteDatabase } | null = null;

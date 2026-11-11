@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Screen, space, T } from '@/ui';
+import { AppBar } from '@/ui/appbar';
 
 export default function Diagnostics() {
   const insets = useSafeAreaInsets();
@@ -27,6 +28,7 @@ export default function Diagnostics() {
         }}
         ListHeaderComponent={
           <View style={{ gap: space.sm, marginBottom: space.md }}>
+            <AppBar />
             <T v="title">Tracking diagnostics</T>
             <T muted>The engine's log, kept for 30 days. A gap means the app was interrupted.</T>
           </View>

@@ -8,7 +8,8 @@ export type PauseReason =
   | 'process_killed'
   | 'app_updated'
   | 'permission_revoked'
-  | 'unknown';
+  | 'unknown'
+  | 'auto';
 
 export interface EngineSnapshot {
   sessionId: string | null;
@@ -84,6 +85,8 @@ declare class TrackingEngineModule extends NativeModule<Events> {
   listFinished(): Promise<FinishedSession[]>;
   ackImported(id: string): Promise<void>;
   getEvents(limit: number): Promise<EngineEvent[]>;
+  setCoachConfig(voice: boolean, haptics: boolean, autoPause: boolean, intervalM: number, unit: string): Promise<void>;
+  notify(id: number, title: string, body: string): Promise<void>;
   requestIgnoreBatteryOptimizations(): Promise<void>;
   openAppSettings(): Promise<void>;
 }
