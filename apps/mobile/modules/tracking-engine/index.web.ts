@@ -22,6 +22,7 @@ const IDLE: EngineSnapshot = {
     locationPermission: false,
     gpsEnabled: false,
     ignoringBatteryOptimizations: true,
+    backgroundLocation: true,
     lowStorage: false,
   },
 };

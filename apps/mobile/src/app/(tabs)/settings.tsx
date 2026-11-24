@@ -18,6 +18,7 @@ import { todayLocal } from '@/lib/stats';
 import { decodeTrack, toGpx } from '@/lib/track';
 import { backupStatus, downloadTrackIfMissing, requestSync, restoreAllTracks, retryBlocked } from '@/sync/worker';
 import { applyCoachSettings } from '@/tracking/coach';
+import { requestBackgroundLocation } from '@/tracking/useEngine';
 import { Avatar, Card, colors, Enter, IconName, Pills, radius, Screen, Segmented, space, T, Tap } from '@/ui';
 import { AppBar } from '@/ui/appbar';
 import { TAB_BAR_SPACE } from '@/ui/activity';
@@ -415,6 +416,18 @@ export default function Settings() {
                   : 'Restricted. Tap to allow unrestricted use, so the phone does not stop a recording.'
             }
             onPress={health?.ignoringBatteryOptimizations ? undefined : () => TrackingEngine.requestIgnoreBatteryOptimizations().then(checkDevice)}
+          />
+          <Row
+            icon="navigate-outline"
+            title="Keep recording when the app is closed"
+            detail={
+              !health
+                ? 'Checking…'
+                : health.backgroundLocation
+                  ? 'Location allowed all the time. A recording restarts itself if the phone closes the app.'
+                  : 'Tap and choose "Allow all the time", so a recording restarts itself if the phone closes the app.'
+            }
+            onPress={health && !health.backgroundLocation ? () => requestBackgroundLocation().then(checkDevice) : undefined}
           />
           <Row
             icon="location-outline"

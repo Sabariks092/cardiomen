@@ -119,6 +119,24 @@ export async function requestAllPermissionsOnFirstLaunch() {
   await TrackingEngine.requestIgnoreBatteryOptimizations();
 }
 
+/**
+ * "Allow all the time". Optional: with it, a recording the phone killed restarts by itself and
+ * carries on. Android 11+ sends the user to the app's location settings for this.
+ */
+export async function requestBackgroundLocation(): Promise<void> {
+  if (Platform.OS !== 'android' || Number(Platform.Version) < 29) return;
+  const P = PermissionsAndroid.PERMISSIONS;
+  if (!(await PermissionsAndroid.check(P.ACCESS_FINE_LOCATION))) return;
+  const result = await PermissionsAndroid.request(P.ACCESS_BACKGROUND_LOCATION, {
+    title: 'Keep recording without interruptions',
+    message:
+      'Choose "Allow all the time" so a recording can restart itself if your phone closes the app. ' +
+      'Location is still only used while an activity is recording.',
+    buttonPositive: 'Continue',
+  });
+  if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) await TrackingEngine.openAppSettings();
+}
+
 export interface PermissionResult {
   location: boolean;
   notifications: boolean;

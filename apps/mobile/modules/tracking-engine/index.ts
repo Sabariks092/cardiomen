@@ -28,6 +28,8 @@ export interface EngineSnapshot {
   accuracyM: number | null;
   health: {
     locationPermission: boolean;
+    /** "Allow all the time". Needed for the recorder to restart itself after the phone kills the app. */
+    backgroundLocation: boolean;
     gpsEnabled: boolean;
     ignoringBatteryOptimizations: boolean;
     lowStorage: boolean;

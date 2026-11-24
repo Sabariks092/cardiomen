@@ -184,6 +184,13 @@ class TrackingDb(context: Context) :
     }
   }
 
+  fun loadLastAcceptedFix(id: String): Fix? = readableDatabase.rawQuery(
+    "SELECT t_wall, lat, lng, accuracy_m FROM point WHERE session_id = ? AND accepted = 1 ORDER BY seq DESC LIMIT 1",
+    arrayOf(id),
+  ).use { c ->
+    if (c.moveToFirst()) Fix(c.getLong(0), c.getDouble(1), c.getDouble(2), c.doubleOrNull(3)) else null
+  }
+
   fun loadEvents(limit: Int): List<Map<String, Any?>> = readableDatabase.rawQuery(
     "SELECT session_id, t_wall, kind, detail FROM event ORDER BY t_wall DESC, seq DESC LIMIT ?",
     arrayOf(limit.toString()),

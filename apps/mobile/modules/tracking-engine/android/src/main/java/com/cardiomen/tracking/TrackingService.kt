@@ -75,7 +75,8 @@ class TrackingService : Service(), Engine.ServiceHook, SensorEventListener {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     stopping = false
-    val restartedByOs = intent == null
+    // Either Android restarted the sticky service, or the engine asked for it after a kill.
+    val restartedByOs = intent == null || intent.action == ACTION_RECOVER
     try {
       goForeground()
     } catch (e: Exception) {
@@ -92,7 +93,7 @@ class TrackingService : Service(), Engine.ServiceHook, SensorEventListener {
     engine.attachService(this)
 
     if (restartedByOs) {
-      if (!engine.continueAfterRestart()) engine.recover(Engine.TRIGGER_DEAD_MAN)
+      if (!engine.continueAfterRestart()) engine.recover(Engine.TRIGGER_DEAD_MAN, allowRestart = false)
     } else {
       when (intent?.action) {
         ACTION_PAUSE -> engine.pause(PauseReason.USER)
@@ -231,6 +232,11 @@ class TrackingService : Service(), Engine.ServiceHook, SensorEventListener {
     }
   }
 
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    engine.onTaskRemoved()
+    super.onTaskRemoved(rootIntent)
+  }
+
   override fun onDestroy() {
     removeSensors()
     updateWakeLock(false)
@@ -246,6 +252,15 @@ class TrackingService : Service(), Engine.ServiceHook, SensorEventListener {
     const val ACTION_ENSURE = "com.cardiomen.tracking.ENSURE"
     const val ACTION_PAUSE = "com.cardiomen.tracking.PAUSE"
     const val ACTION_RESUME = "com.cardiomen.tracking.RESUME"
+    const val ACTION_RECOVER = "com.cardiomen.tracking.RECOVER"
+
+    /** Throws when Android won't allow a start from the background. */
+    fun recoverRunning(context: Context) {
+      ContextCompat.startForegroundService(
+        context,
+        Intent(context, TrackingService::class.java).setAction(ACTION_RECOVER),
+      )
+    }
 
     fun ensureRunning(context: Context) {
       ContextCompat.startForegroundService(

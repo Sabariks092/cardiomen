@@ -44,6 +44,8 @@ class Engine private constructor(context: Context) {
   private val pace = PaceWindow()
   private val buffer = ArrayList<PointRow>()
   private var lastFix: Fix? = null
+  // Last counted position before the process died. The first good fix after a restart is joined to it.
+  private var bridgeFrom: Fix? = null
   private var lastFixElapsed = 0L
   private var lastAlarmElapsed = 0L
   private var lastNotificationElapsed = 0L
@@ -215,8 +217,11 @@ class Engine private constructor(context: Context) {
   /**
    * Runs at app launch, boot, package replace and from the dead-man alarm. Safe to call any time:
    * an activity this process is really recording is left alone.
+   *
+   * A recording whose process died is restarted and carries on. It only becomes a saved pause when
+   * that's impossible: a reboot, an app update, a long gap, or Android refusing the restart.
    */
-  fun recover(trigger: String): Unit = call {
+  fun recover(trigger: String, allowRestart: Boolean = true): Unit = call {
     val s = session ?: return@call
     when (s.state) {
       SessionState.ARMED -> if (service == null) {
@@ -225,6 +230,12 @@ class Engine private constructor(context: Context) {
         emitState()
       }
       SessionState.ACTIVE -> if (!segmentOpen) {
+        val restartable = allowRestart && (trigger == TRIGGER_LAUNCH || trigger == TRIGGER_DEAD_MAN)
+        if (restartable && canContinue(s) && startService()) {
+          // If this restart dies silently too, the alarm tries again.
+          armDeadMan(force = true)
+          return@call
+        }
         interrupt(s, trigger)
         Notifier.pausedAlert(app, s)
         emitState()
@@ -237,36 +248,76 @@ class Engine private constructor(context: Context) {
     }
   }
 
-  /** The OS restarted a sticky service in a new process, and it's holding location again. */
+  /**
+   * The service is back in a new process and holding location again. The activity was never paused,
+   * so the time the process was gone still counts, and the route is joined across it.
+   */
   fun continueAfterRestart(): Boolean = call {
     val s = session ?: return@call false
     if (s.state != SessionState.ACTIVE) return@call false
     if (segmentOpen) return@call true
-    if (s.bootCount != bootCount()) return@call false
-    openSegment(s, "gap", "process_restart")
+    if (!canContinue(s)) return@call false
+    val gapMs = deadGapMs(s)
+    s.activeMs += gapMs
+    val from = db.loadLastAcceptedFix(s.id)
+    openSegment(s, "gap", "process_restart:${gapMs / 1000}s", newSegment = false)
+    bridgeFrom = from
     emitState()
     true
   }
 
-  /** The sticky restart couldn't regain location, so the activity becomes a saved pause. */
+  /** The restart couldn't regain location, so the activity becomes a saved pause. */
   fun restartFailed(detail: String): Unit = call {
     val s = session ?: return@call
-    if (s.state == SessionState.ACTIVE && !segmentOpen) {
+    if (s.state != SessionState.ACTIVE) return@call
+    if (segmentOpen) {
+      pause(PauseReason.UNKNOWN)
+    } else {
       interrupt(s, "restart_failed:$detail")
-      Notifier.pausedAlert(app, s)
       emitState()
     }
+    Notifier.pausedAlert(app, s)
   }
 
-  /** The service went away while the process lives on (e.g. the user stopped it from the OS). */
+  /** The service went away while the process lives on. Start it again; pause only if that fails. */
   fun onServiceDestroyed(hook: ServiceHook): Unit = call {
     if (service === hook) service = null
     val s = session ?: return@call
-    if (s.state == SessionState.ACTIVE) {
+    if (s.state == SessionState.ACTIVE && service == null && !startService()) {
       pause(PauseReason.UNKNOWN)
       Notifier.pausedAlert(app, s)
     }
   }
+
+  /** The app was swiped away. Some phones kill the process with it, so check back in a moment. */
+  fun onTaskRemoved() {
+    handler.post {
+      if (session?.state != SessionState.ACTIVE) return@post
+      app.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(
+        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+        SystemClock.elapsedRealtime() + TASK_REMOVED_CHECK_MS,
+        deadManIntent(REQUEST_TASK_REMOVED),
+      )
+    }
+  }
+
+  private fun startService(): Boolean = try {
+    TrackingService.recoverRunning(app)
+    true
+  } catch (e: Exception) {
+    // Android refuses a background start unless the app is exempt from battery optimization.
+    android.util.Log.w("CardiomenEngine", "service restart refused", e)
+    false
+  }
+
+  private fun deadGapMs(s: Session): Long =
+    (System.currentTimeMillis() - (s.lastWallMs ?: System.currentTimeMillis())).coerceAtLeast(0L)
+
+  private fun canContinue(s: Session): Boolean =
+    s.bootCount == bootCount() &&
+      s.appVersion == appVersion() &&
+      hasLocationPermission() &&
+      deadGapMs(s) <= MAX_CONTINUE_GAP_MS
 
   private fun interrupt(s: Session, trigger: String) {
     // active_ms was saved at the last checkpoint, so downtime is never counted, even across reboots.
@@ -304,6 +355,10 @@ class Engine private constructor(context: Context) {
 
       val result = filter.process(fix)
       s.distanceM += result.addedMeters
+      if (result.accepted) {
+        bridgeFrom?.let { s.distanceM += bridgeMeters(it, fix) }
+        bridgeFrom = null
+      }
       pace.add(activeMsNow(s), s.distanceM)
       buffer.add(PointRow(s.nextPointSeq++, s.segmentNo, fix, result.accepted))
       emitPoint(s, fix, result.accepted)
@@ -348,8 +403,8 @@ class Engine private constructor(context: Context) {
 
   // ---------- Internals ----------
 
-  private fun openSegment(s: Session, eventKind: String, detail: String? = null) {
-    s.segmentNo += 1
+  private fun openSegment(s: Session, eventKind: String, detail: String? = null, newSegment: Boolean = true) {
+    if (newSegment) s.segmentNo += 1
     s.state = SessionState.ACTIVE
     s.pauseReason = null
     s.bootCount = bootCount()
@@ -373,6 +428,7 @@ class Engine private constructor(context: Context) {
     s.activeMs = activeMsNow(s)
     bankedMs = s.activeMs
     segmentOpen = false
+    bridgeFrom = null
     s.steps = tally.total
     handler.removeCallbacks(heartbeat)
   }
@@ -380,6 +436,14 @@ class Engine private constructor(context: Context) {
   private fun resetSegmentTools() {
     filter.reset()
     pace.reset()
+    bridgeFrom = null
+  }
+
+  /** Straight-line distance across a restart, unless it implies an impossible speed. */
+  private fun bridgeMeters(from: Fix, to: Fix): Double {
+    val meters = haversineM(from.lat, from.lng, to.lat, to.lng)
+    val seconds = (to.tMs - from.tMs) / 1000.0
+    return if (meters >= MIN_BRIDGE_M && seconds > 0 && meters / seconds <= MAX_BRIDGE_SPEED_MPS) meters else 0.0
   }
 
   private fun activeMsNow(s: Session): Long =
@@ -471,12 +535,14 @@ class Engine private constructor(context: Context) {
   }
 
   private fun cancelDeadMan() {
-    app.getSystemService(AlarmManager::class.java).cancel(deadManIntent())
+    val alarms = app.getSystemService(AlarmManager::class.java)
+    alarms.cancel(deadManIntent())
+    alarms.cancel(deadManIntent(REQUEST_TASK_REMOVED))
   }
 
-  private fun deadManIntent() = PendingIntent.getBroadcast(
+  private fun deadManIntent(requestCode: Int = REQUEST_DEAD_MAN) = PendingIntent.getBroadcast(
     app,
-    4,
+    requestCode,
     Intent(app, DeadManReceiver::class.java),
     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
   )
@@ -511,6 +577,7 @@ class Engine private constructor(context: Context) {
       "accuracyM" to fix?.accuracyM,
       "health" to mapOf(
         "locationPermission" to hasLocationPermission(),
+        "backgroundLocation" to hasBackgroundLocation(),
         "gpsEnabled" to app.getSystemService(LocationManager::class.java).isLocationEnabled,
         "ignoringBatteryOptimizations" to isIgnoringBatteryOptimizations(),
         "lowStorage" to (StatFs(app.filesDir.path).availableBytes < MIN_FREE_BYTES),
@@ -574,6 +641,11 @@ class Engine private constructor(context: Context) {
     Manifest.permission.ACCESS_FINE_LOCATION,
   ) == PackageManager.PERMISSION_GRANTED
 
+  // "Allow all the time". Without it Android won't let a restarted recorder use location.
+  private fun hasBackgroundLocation() = Build.VERSION.SDK_INT < 29 ||
+    ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+    PackageManager.PERMISSION_GRANTED
+
   private fun bootCount() =
     Settings.Global.getInt(app.contentResolver, Settings.Global.BOOT_COUNT, -1)
 
@@ -591,8 +663,15 @@ class Engine private constructor(context: Context) {
     private const val TICK_MS = 1_000L
     private const val FLUSH_EVERY_TICKS = 3
     private const val NOTIFICATION_MS = 15_000L
-    private const val DEAD_MAN_REARM_MS = 60_000L
-    private const val DEAD_MAN_FIRE_MS = 180_000L
+    private const val DEAD_MAN_REARM_MS = 20_000L
+    private const val DEAD_MAN_FIRE_MS = 60_000L
+    private const val TASK_REMOVED_CHECK_MS = 5_000L
+    private const val REQUEST_DEAD_MAN = 4
+    private const val REQUEST_TASK_REMOVED = 5
+    // Longer than this without a recorder and it's no longer the same outing: save it as a pause.
+    private const val MAX_CONTINUE_GAP_MS = 900_000L
+    private const val MIN_BRIDGE_M = 5.0
+    private const val MAX_BRIDGE_SPEED_MPS = 12.0
     private const val PAUSE_RELEASE_MS = 600_000L
     private const val ARM_TIMEOUT_MS = 900_000L
     private const val GPS_STALE_MS = 10_000L

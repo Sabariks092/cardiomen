@@ -16,7 +16,7 @@ import { LngLat, toSegments } from '@/lib/track';
 import { requestSync } from '@/sync/worker';
 import { applyCoachSettings } from '@/tracking/coach';
 import { importFinished } from '@/tracking/importer';
-import { requestTrackingPermissions, useActiveMs, useEngineSnapshot, useLiveTrack } from '@/tracking/useEngine';
+import { requestBackgroundLocation, requestTrackingPermissions, useActiveMs, useEngineSnapshot, useLiveTrack } from '@/tracking/useEngine';
 import { ActivityBadge, Button, Card, colors, InkGloss, Pulse, radius, RoundButton, shadow, space, T, Tap } from '@/ui';
 import { LiveMap } from '@/ui/maps';
 import { resetTo } from '@/ui/nav';
@@ -467,6 +467,14 @@ function Prepare({
         ? 'Battery unrestricted, so the phone keeps recording'
         : 'Battery is restricted. Some phones may stop recording.',
       fix: h && !h.ignoringBatteryOptimizations ? () => TrackingEngine.requestIgnoreBatteryOptimizations() : undefined,
+    },
+    {
+      ok: h ? h.backgroundLocation : null,
+      label: 'Recording after the app is closed',
+      detail: h?.backgroundLocation
+        ? 'Location allowed all the time, so a stopped recording restarts itself'
+        : 'Set location to "Allow all the time" so a recording restarts itself if the phone closes the app.',
+      fix: h && h.locationPermission && !h.backgroundLocation ? () => requestBackgroundLocation() : undefined,
     },
     ...(notificationsOk === false
       ? [{ ok: false, label: 'Notifications', detail: "Off. You won't be told if an activity is interrupted." }]
