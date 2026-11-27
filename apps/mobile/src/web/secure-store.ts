@@ -10,3 +10,11 @@ export async function setItemAsync(key: string, value: string) {
 export async function deleteItemAsync(key: string) {
   localStorage.removeItem(key);
 }
+
+export function getItem(key: string) {
+  return localStorage.getItem(key);
+}
+
+export function setItem(key: string, value: string) {
+  localStorage.setItem(key, value);
+}

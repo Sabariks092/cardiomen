@@ -2,7 +2,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { requestSync, startSyncTriggers } from '@/sync/worker';
 import { importFinished } from '@/tracking/importer';
 import { applyCoachSettings } from '@/tracking/coach';
 import { colors, fonts } from '@/ui';
+import { subscribeTheme, themeVersion } from '@/ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -26,6 +27,8 @@ export default function RootLayout() {
     [fonts.bold]: require('../../assets/fonts/Poppins-Bold.ttf'),
   });
   const ready = fontsLoaded || !!fontError;
+  // A new palette redraws every screen from scratch, so nothing keeps the old colours.
+  const theme = useSyncExternalStore(subscribeTheme, themeVersion);
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => undefined);
@@ -62,6 +65,7 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         {ready ? (
         <Stack
+          key={theme}
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.bg },

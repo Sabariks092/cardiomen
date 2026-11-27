@@ -31,17 +31,23 @@ export async function limitEmailRouteByIp(ip: string) {
 
 /**
  * Whether another email may go to this address right now. Resend timing is checked first, so
- * impatient taps don't use up the hourly budget. Refusals are silent: answering differently here
- * would reveal which emails have accounts.
+ * impatient taps don't use up the hourly budget.
+ *
+ * - `send`: go ahead.
+ * - `wait`: a code went out under a minute ago and is still valid, so don't send another.
+ * - `limit`: too many codes this hour.
  */
-export async function reserveOtpSend(email: string, purpose: OtpPurpose): Promise<boolean> {
+export async function reserveOtpSend(email: string, purpose: OtpPurpose): Promise<'send' | 'wait' | 'limit'> {
   const latest = await db().emailOtp.findFirst({
     where: { email, purpose },
     orderBy: { createdAt: 'desc' },
   });
-  if (latest && !latest.consumedAt && Date.now() - latest.createdAt.getTime() < OTP_RESEND_MS) return false;
-  return !(await hitRateLimit(`otp:email:${email}`, SENDS_PER_EMAIL_PER_HOUR, HOUR));
+  if (latest && !latest.consumedAt && Date.now() - latest.createdAt.getTime() < OTP_RESEND_MS) return 'wait';
+  return (await hitRateLimit(`otp:email:${email}`, SENDS_PER_EMAIL_PER_HOUR, HOUR)) ? 'limit' : 'send';
 }
+
+export const tooManyCodes = () =>
+  new HttpError(429, 'RATE_LIMITED', 'Too many codes were sent to this email. Please try again in an hour.');
 
 /** Creates a code and emails it. A new code invalidates older ones. Call reserveOtpSend first. */
 export async function deliverOtp(email: string, purpose: OtpPurpose) {

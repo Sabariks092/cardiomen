@@ -48,6 +48,7 @@ import {
 import { AppBar } from '@/ui/appbar';
 import { RouteMap } from '@/ui/maps';
 import { resetTo } from '@/ui/nav';
+import { themed } from '@/ui/theme';
 
 const TYPES = [
   { value: 'walk', label: 'Walk' },
@@ -484,7 +485,7 @@ function EditSheet({ activity, onClose }: { activity: Activity; onClose: () => v
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   map: { height: 340 },
   close: { position: 'absolute', left: space.lg },
   body: { padding: space.lg, marginTop: -space.xl, gap: space.md },
@@ -518,4 +519,4 @@ const styles = StyleSheet.create({
   },
   scrim: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: space.lg },
   dialog: { gap: space.md, borderRadius: radius.xl },
-});
+}));

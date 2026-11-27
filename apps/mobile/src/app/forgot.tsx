@@ -2,7 +2,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { friendlyError, publicPost } from '@/auth/api';
+import { ApiError, friendlyError, publicPost } from '@/auth/api';
+import { emailProblem, normalizeEmail } from '@/auth/emailCheck';
+import { EmailField } from '@/auth/parts';
 import { Button, Field, Screen, space, T } from '@/ui';
 
 const RESEND_SECONDS = 60;
@@ -11,14 +13,43 @@ export default function Forgot() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [step, setStep] = useState<'email' | 'code'>('email');
-  // Change password from Settings arrives with the account's email filled in.
+  // Arrives with the email filled in: from Settings (the account's email) or from the sign-in
+  // screen (whatever was typed there).
   const params = useLocalSearchParams<{ email?: string }>();
   const [email, setEmail] = useState(params.email ?? '');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  /** No account uses the email, so offer to create one. */
+  const [unknown, setUnknown] = useState(false);
   const [wait, setWait] = useState(0);
+
+  const sendCode = async () => {
+    const problem = emailProblem(email);
+    setEmailError(problem);
+    setUnknown(false);
+    setError(null);
+    if (problem) return;
+    setBusy(true);
+    try {
+      const address = normalizeEmail(email);
+      await publicPost('/auth/forgot-password', { email: address });
+      setEmail(address);
+      setStep('code');
+      setWait(RESEND_SECONDS);
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'EMAIL_NOT_FOUND') {
+        setEmailError(e.message);
+        setUnknown(true);
+      } else {
+        setError(friendlyError(e));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (wait <= 0) return undefined;
@@ -47,30 +78,25 @@ export default function Forgot() {
         <T v="title">Reset password</T>
         {step === 'email' ? (
           <>
-            <Field
-              label="Email"
+            <T muted>We'll email you a code to set a new password.</T>
+            <EmailField
               value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
+              onChangeText={(v) => {
+                setEmail(v);
+                setEmailError(null);
+                setUnknown(false);
+              }}
+              error={emailError}
             />
+            {unknown ? (
+              <Button title="Create an account" kind="glass" onPress={() => router.replace('/register')} />
+            ) : null}
             {error ? <T v="small">{error}</T> : null}
-            <Button
-              title="Send code"
-              loading={busy}
-              disabled={!email}
-              onPress={() =>
-                run(async () => {
-                  await publicPost('/auth/forgot-password', { email });
-                  setStep('code');
-                  setWait(RESEND_SECONDS);
-                })
-              }
-            />
+            <Button title="Send code" loading={busy} disabled={!email} onPress={sendCode} />
           </>
         ) : (
           <>
-            <T muted>If that email has an account, a code is on its way.</T>
+            <T muted>We sent a 6-digit code to {email}. It expires in 10 minutes.</T>
             <Field
               label="Code"
               value={code}
@@ -107,6 +133,15 @@ export default function Forgot() {
                   setWait(RESEND_SECONDS);
                 })
               }
+            />
+            <Button
+              title="Use a different email"
+              kind="ghost"
+              onPress={() => {
+                setStep('email');
+                setCode('');
+                setError(null);
+              }}
             />
           </>
         )}

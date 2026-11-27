@@ -9,6 +9,7 @@ import { useSettings } from '@/db/settings';
 import { useRecordingState } from '@/tracking/useEngine';
 import { ActivityPicker, PickerContext, useStartActivity } from '@/ui/activity';
 import { colors, InkGloss, Pulse, radius, shadow, space, T, Tap } from '@/ui';
+import { themed } from '@/ui/theme';
 
 const TABS = {
   index: ['home', 'Home'],
@@ -136,7 +137,7 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: {
     position: 'absolute',
     left: space.lg,
@@ -173,4 +174,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: shadow.button,
   },
-});
+}));

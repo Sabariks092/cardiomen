@@ -35,11 +35,11 @@ import {
 } from '@/ui';
 import { ActivityCard, startLabel, TAB_BAR_SPACE, TYPES, useStartActivity } from '@/ui/activity';
 import { AppBar } from '@/ui/appbar';
+import { inkRamp, themed } from '@/ui/theme';
 
 const CELL = 12;
 const GAP = 3;
 const HEAT_WEEKS = 53;
-const HEAT_COLORS = ['#E8E8E8', '#C4C4C4', '#8E8E8E', '#555555', '#111111'];
 const WEEKDAY_ROWS = ['M', '', 'W', '', 'F', '', 'S'];
 
 const WEEK_METRICS = [
@@ -366,7 +366,7 @@ export default function Home() {
                             <View
                               style={[
                                 styles.cell,
-                                { backgroundColor: HEAT_COLORS[level] },
+                                { backgroundColor: inkRamp()[level] },
                                 day === today && styles.cellToday,
                               ]}
                             />
@@ -382,14 +382,14 @@ export default function Home() {
               <T v="small" muted>
                 Less
               </T>
-              {HEAT_COLORS.map((c) => (
+              {inkRamp().map((c) => (
                 <View key={c} style={[styles.cell, { backgroundColor: c }]} />
               ))}
               <T v="small" muted>
                 More
               </T>
               <View style={{ flex: 1 }} />
-              <View style={[styles.cell, styles.cellToday, { backgroundColor: HEAT_COLORS[0] }]} />
+              <View style={[styles.cell, styles.cellToday, { backgroundColor: inkRamp()[0] }]} />
               <T v="small" muted>
                 Today
               </T>
@@ -451,7 +451,7 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   typeRow: { flexDirection: 'row', gap: space.sm },
   typeChoice: {
@@ -487,4 +487,4 @@ const styles = StyleSheet.create({
   heatMonthSlot: { width: CELL, height: 14 },
   heatMonth: { position: 'absolute', left: 0, width: 32, fontSize: 9 },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: space.lg },
-});
+}));

@@ -1,28 +1,37 @@
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '@/db';
 import { HttpError, tooMany, unauthorized } from '@/http';
-import { sendAccountExistsEmail } from './email';
-import { consumeOtp, deliverOtp, limitEmailRouteByIp, OTP_TTL_MS, reserveOtpSend } from './otp';
+import { assertDeliverable } from './deliverable';
+import { consumeOtp, deliverOtp, limitEmailRouteByIp, OTP_TTL_MS, reserveOtpSend, tooManyCodes } from './otp';
 import { hashPassword, verifyPassword } from './password';
 import { hitRateLimit } from './rateLimit';
 import { issueSession, revokeAllForUser } from './tokens';
 
 const INVALID_CODE = () => new HttpError(400, 'INVALID_CODE', 'That code is wrong or has expired.');
+const emailNotFound = () =>
+  new HttpError(404, 'EMAIL_NOT_FOUND', 'No account uses this email. Check it for typos, or create an account.');
 
 export async function register(input: { name: string; email: string; password: string }, ip: string) {
-  // Limits come first: a refused request must not change anything or cost a password hash.
+  // The IP limit comes first: a refused request must not change anything or cost a password hash.
   await limitEmailRouteByIp(ip);
   const prisma = db();
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
-
-  // Same response in every case, so this can't be used to discover who has an account.
-  if (!(await reserveOtpSend(input.email, 'REGISTER'))) return;
   if (existing) {
-    await sendAccountExistsEmail(input.email).catch((e) =>
-      console.error('Account-exists email failed', e instanceof Error ? e.message : e),
+    throw new HttpError(
+      409,
+      'EMAIL_TAKEN',
+      existing.passwordHash
+        ? 'An account with this email already exists. Sign in instead.'
+        : 'This email is already registered with Google. Use Continue with Google to sign in.',
     );
-    return;
   }
+  await assertDeliverable(input.email);
+
+  const reserved = await reserveOtpSend(input.email, 'REGISTER');
+  if (reserved === 'limit') throw tooManyCodes();
+  // A code went out under a minute ago. Change nothing: otherwise a stranger could swap in their
+  // own password just after the real owner signed up.
+  if (reserved === 'wait') return;
   const passwordHash = await hashPassword(input.password);
   const expiresAt = new Date(Date.now() + OTP_TTL_MS * 6);
   await prisma.pendingRegistration.upsert({
@@ -70,7 +79,17 @@ export async function resendOtp(email: string, purpose: 'REGISTER' | 'RESET_PASS
     purpose === 'REGISTER'
       ? await prisma.pendingRegistration.findFirst({ where: { email, expiresAt: { gt: new Date() } } })
       : await prisma.user.findUnique({ where: { email } });
-  if (eligible && (await reserveOtpSend(email, purpose))) await deliverOtp(email, purpose);
+  if (!eligible) {
+    throw purpose === 'REGISTER'
+      ? new HttpError(410, 'SIGNUP_EXPIRED', 'This sign-up has expired. Please start again.')
+      : emailNotFound();
+  }
+  const reserved = await reserveOtpSend(email, purpose);
+  if (reserved === 'limit') throw tooManyCodes();
+  if (reserved === 'wait') {
+    throw new HttpError(429, 'RESEND_TOO_SOON', 'A code was sent less than a minute ago. Please wait before asking again.');
+  }
+  await deliverOtp(email, purpose);
 }
 
 export async function login(input: { email: string; password: string; deviceName?: string }, ip: string) {
@@ -107,7 +126,8 @@ let verifier: (idToken: string) => Promise<GoogleIdentity> = async (idToken) => 
     email: payload.email.toLowerCase(),
     emailVerified: payload.email_verified === true,
     name: payload.name,
-    picture: payload.picture,
+    // Google sends a 96px thumbnail; the size suffix can ask for a sharper one.
+    picture: payload.picture?.replace(/=s\d+-c$/, '=s400-c'),
   };
 };
 
@@ -153,7 +173,11 @@ export async function signInWithGoogle(input: { idToken: string; deviceName?: st
 export async function forgotPassword(email: string, ip: string) {
   await limitEmailRouteByIp(ip);
   const user = await db().user.findUnique({ where: { email } });
-  if (user && (await reserveOtpSend(email, 'RESET_PASSWORD'))) await deliverOtp(email, 'RESET_PASSWORD');
+  if (!user) throw emailNotFound();
+  const reserved = await reserveOtpSend(email, 'RESET_PASSWORD');
+  if (reserved === 'limit') throw tooManyCodes();
+  // 'wait': the code sent under a minute ago is still valid, so the person carries on with it.
+  if (reserved === 'send') await deliverOtp(email, 'RESET_PASSWORD');
 }
 
 export async function resetPassword(input: { email: string; code: string; password: string }, ip: string) {

@@ -58,6 +58,7 @@ import { createHistory, History, push, redo, undo } from '@/share/history';
 import { SelectionOutline, ShareData, ShareScene } from '@/share/scene';
 import { requestSync } from '@/sync/worker';
 import { Button, colors, Field, InkGloss, radius, Screen, shadow, space, T, Tap } from '@/ui';
+import { themed } from '@/ui/theme';
 
 type Tab = 'style' | 'format' | 'layers' | 'background' | 'map' | 'route' | 'metrics' | 'photos' | 'text' | 'presets';
 
@@ -1321,7 +1322,7 @@ function Checker({ w, h }: { w: number; h: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, paddingBottom: space.sm },
   icon: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
   smallIcon: { width: 30, height: 34, alignItems: 'center', justifyContent: 'center' },
@@ -1363,4 +1364,4 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   layerRowOn: { borderColor: colors.ink, boxShadow: shadow.card },
-});
+}));

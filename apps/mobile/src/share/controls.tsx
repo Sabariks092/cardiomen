@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, interpolateColor, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { colors, radius, shadow, space, spring, T, Tap } from '@/ui';
+import { themed } from '@/ui/theme';
 
 /** The studio is the one place with color: you choose it for your image. */
 export const SWATCHES = [
@@ -154,8 +155,10 @@ export function Toggle({ label, value, onChange }: { label: string; value: boole
   useEffect(() => {
     on.value = withSpring(value ? 1 : 0, spring);
   }, [value, on]);
+  // Copied out first: worklets freeze objects they capture, and `colors` changes with the theme.
+  const ink = colors.ink;
   const track = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(on.value, [0, 1], ['rgba(0,0,0,0.1)', colors.ink]),
+    backgroundColor: interpolateColor(on.value, [0, 1], ['rgba(0,0,0,0.1)', ink]),
   }));
   const knob = useAnimatedStyle(() => ({ transform: [{ translateX: on.value * 20 }] }));
   return (
@@ -187,7 +190,7 @@ export function Panel({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   hex: {
     minWidth: 96,
@@ -250,4 +253,4 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     boxShadow: shadow.card,
   },
-});
+}));

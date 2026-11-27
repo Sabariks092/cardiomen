@@ -4,6 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '@/generated/prisma/client';
+import { setDomainCheckerForTests } from '@/auth/deliverable';
 import { setMailerForTests } from '@/auth/email';
 
 /** A real Postgres (PGlite) with the real migrations applied, so tests exercise real SQL. */
@@ -30,6 +31,8 @@ export async function startHarness(port: number): Promise<Harness> {
   (globalThis as unknown as { prisma: PrismaClient }).prisma = prisma;
 
   const sent: Harness['sent'] = [];
+  // No real DNS in tests. (example.com publishes a "null MX", so it would count as undeliverable.)
+  setDomainCheckerForTests(async () => true);
   setMailerForTests({
     async send(to, subject, text) {
       sent.push({ to, subject, text });

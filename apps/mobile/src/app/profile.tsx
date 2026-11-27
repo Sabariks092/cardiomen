@@ -32,6 +32,7 @@ import {
   Tap,
 } from '@/ui';
 import { AppBar } from '@/ui/appbar';
+import { themed } from '@/ui/theme';
 
 export default function Profile() {
   const insets = useSafeAreaInsets();
@@ -218,7 +219,7 @@ function EditProfileSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   identity: { alignItems: 'center', gap: 4, paddingVertical: space.xl },
   camera: {
@@ -236,4 +237,4 @@ const styles = StyleSheet.create({
   },
   grid: { flexDirection: 'row', gap: space.md },
   record: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 30 },
-});
+}));

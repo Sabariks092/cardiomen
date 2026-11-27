@@ -8,6 +8,7 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, PermissionsAndroid, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authed, friendlyError, getAuthState, publicPost } from '@/auth/api';
+import { forgetGoogleAccount } from '@/auth/google';
 import { currentSession, endSession, getRefreshToken } from '@/auth/session';
 import { deleteUserDb, useLocalQuery } from '@/db';
 import { allActivitiesLite, deleteAllActivities, getTrackBlob, listActivities } from '@/db/activities';
@@ -24,6 +25,7 @@ import { AppBar } from '@/ui/appbar';
 import { TAB_BAR_SPACE } from '@/ui/activity';
 import { resetTo } from '@/ui/nav';
 import { Switch } from '@/ui/switch';
+import { PALETTES, paletteId, themed } from '@/ui/theme';
 
 function Row({
   icon,
@@ -181,6 +183,7 @@ export default function Settings() {
               publicPost('/auth/logout', { refreshToken }).catch(() => undefined);
             }
             await endSession();
+            await forgetGoogleAccount();
             resetTo(router, '/welcome');
           },
         },
@@ -200,6 +203,7 @@ export default function Settings() {
             await authed('/me', { method: 'DELETE' });
             await deleteUserDb();
             await endSession();
+            await forgetGoogleAccount();
             resetTo(router, '/welcome');
           } catch (e) {
             Alert.alert('Could not delete account', friendlyError(e));
@@ -293,6 +297,15 @@ export default function Settings() {
               <Row icon="trash-outline" title="Delete account" onPress={deleteAccount} />
             </>
           )}
+        </Section>
+
+        <Section i={2} title="Appearance">
+          <Row
+            icon="color-palette-outline"
+            title="Theme"
+            detail={PALETTES[paletteId()].name}
+            onPress={() => router.push('/theme')}
+          />
         </Section>
 
         {/* B. Units and calendar */}
@@ -527,7 +540,7 @@ export default function Settings() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 58, padding: space.sm },
   icon: {
     width: 34,
@@ -539,4 +552,4 @@ const styles = StyleSheet.create({
   },
   iconDanger: { backgroundColor: colors.ink },
   profile: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.sm, borderRadius: radius.md },
-});
+}));

@@ -8,6 +8,7 @@ import { POST as registerRoute } from '../app/api/v1/auth/register/route';
 import { POST as reset } from '../app/api/v1/auth/reset-password/route';
 import { POST as verify } from '../app/api/v1/auth/verify-otp/route';
 import { GET as me } from '../app/api/v1/me/route';
+import { setDomainCheckerForTests } from '@/auth/deliverable';
 import { setMailerForTests } from '@/auth/email';
 import { setGoogleVerifierForTests } from '@/auth/service';
 import { get, Harness, post, startHarness } from './harness';
@@ -82,14 +83,14 @@ describe('registration', () => {
     expect((await verify(post('/verify', { email: 'a@example.com', code: h.lastCode(), password: PASSWORD }), noCtx)).status).toBe(400);
   });
 
-  it('does not reveal whether an email already has an account', async () => {
+  it('refuses an email that already has an account, and sends nothing', async () => {
     await registerAndVerify();
     h.sent.length = 0;
     const res = await registerRoute(post('/register', { name: 'B', email: 'a@example.com', password: 'another password' }), noCtx);
-    expect(res.status).toBe(202);
-    expect(h.sent[0].subject).toContain('already have');
-    expect(h.sent[0].text).not.toMatch(/\b\d{6}\b/);
-    // The attacker's password must not take effect.
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe('EMAIL_TAKEN');
+    expect(h.sent).toHaveLength(0);
+    // The second password must not take effect.
     expect((await login(post('/login', { email: 'a@example.com', password: 'another password' }), noCtx)).status).toBe(401);
   });
 
@@ -116,6 +117,16 @@ describe('registration', () => {
         h.sent.push({ to, subject, text });
       },
     });
+  });
+
+  it('refuses an email whose domain cannot receive mail', async () => {
+    setDomainCheckerForTests(async (domain) => domain !== 'no-such-domain.invalid');
+    const res = await registerRoute(post('/register', { name: 'A', email: 'a@no-such-domain.invalid', password: PASSWORD }), noCtx);
+    setDomainCheckerForTests(async () => true);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe('EMAIL_UNDELIVERABLE');
+    expect(h.sent).toHaveLength(0);
+    expect(await h.prisma.pendingRegistration.count()).toBe(0);
   });
 
   it('validates input', async () => {
@@ -207,9 +218,10 @@ describe('forgot password', () => {
     expect((await login(post('/login', { email: 'a@example.com', password: 'a brand new password' }), noCtx)).status).toBe(200);
   });
 
-  it('sends nothing for an unknown email, with the same response', async () => {
+  it('tells you when no account uses the email, and sends nothing', async () => {
     const res = await forgot(post('/forgot', { email: 'nobody@example.com' }), noCtx);
-    expect(res.status).toBe(202);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe('EMAIL_NOT_FOUND');
     expect(h.sent).toHaveLength(0);
   });
 });

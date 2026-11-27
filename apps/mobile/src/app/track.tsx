@@ -20,6 +20,7 @@ import { requestBackgroundLocation, requestTrackingPermissions, useActiveMs, use
 import { ActivityBadge, Button, Card, colors, InkGloss, Pulse, radius, RoundButton, shadow, space, T, Tap } from '@/ui';
 import { LiveMap } from '@/ui/maps';
 import { resetTo } from '@/ui/nav';
+import { themed } from '@/ui/theme';
 
 const PAUSE_MESSAGE: Record<PauseReason, string> = {
   user: 'Paused',
@@ -544,7 +545,7 @@ function Prepare({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   topBar: {
     position: 'absolute',
@@ -605,4 +606,4 @@ const styles = StyleSheet.create({
   countdown: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(244,244,244,0.96)' },
   countdownHit: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.lg },
   countdownText: { color: colors.ink, fontSize: 160, lineHeight: 190, fontWeight: '200', letterSpacing: -4 },
-});
+}));

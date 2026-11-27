@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { colors, spring } from './theme';
+import { themed } from '@/ui/theme';
 
 /** An on/off switch whose knob springs across. */
 export function Switch({
@@ -20,8 +21,10 @@ export function Switch({
   useEffect(() => {
     on.value = withSpring(value ? 1 : 0, spring);
   }, [value, on]);
+  // Copied out first: worklets freeze objects they capture, and `colors` changes with the theme.
+  const ink = colors.ink;
   const track = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(on.value, [0, 1], ['#DCDCDC', colors.ink]),
+    backgroundColor: interpolateColor(on.value, [0, 1], ['#DCDCDC', ink]),
   }));
   const knob = useAnimatedStyle(() => ({ transform: [{ translateX: on.value * 20 }] }));
   return (
@@ -44,7 +47,7 @@ export function Switch({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   track: { width: 50, height: 30, borderRadius: 15, padding: 3 },
   knob: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.paper, boxShadow: '0px 2px 5px rgba(0,0,0,0.22)' },
-});
+}));

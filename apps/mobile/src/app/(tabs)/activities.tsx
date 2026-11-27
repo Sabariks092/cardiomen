@@ -31,6 +31,7 @@ import {
 } from '@/ui';
 import { AppBar } from '@/ui/appbar';
 import { ActivityCard, TAB_BAR_SPACE, useOpenActivityPicker } from '@/ui/activity';
+import { themed } from '@/ui/theme';
 
 const TYPES = [
   { value: 'all', label: 'All' },
@@ -323,7 +324,7 @@ function RangeSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   search: {
     flexDirection: 'row',
@@ -355,4 +356,4 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.card,
   },
-});
+}));

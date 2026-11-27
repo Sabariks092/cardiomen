@@ -41,6 +41,7 @@ import { AppBar } from '@/ui/appbar';
 import { TAB_BAR_SPACE, useOpenActivityPicker } from '@/ui/activity';
 import { ActivityGlyph } from '@/ui/activityIcon';
 import { BarChart, ConsistencyGrid, LineChart, ShareBar } from '@/ui/charts';
+import { themed } from '@/ui/theme';
 
 const RANGES = [
   { value: 'week', label: 'Week' },
@@ -361,7 +362,7 @@ function LinkRow({ icon, label, onPress }: { icon: React.ComponentProps<typeof I
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   grid: { flexDirection: 'row', gap: space.md },
   compareRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
@@ -377,4 +378,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

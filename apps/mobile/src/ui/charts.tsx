@@ -3,6 +3,7 @@ import { ReactNode, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { colors, radius, space, T } from './index';
+import { inkRamp, themed } from '@/ui/theme';
 
 const BAR_MOVE = LinearTransition.springify().damping(16);
 
@@ -147,7 +148,8 @@ export function LineChart({
   );
 }
 
-const SHADES = [colors.ink, '#7A7A7A', '#C9C9C9'];
+/** Ink first, then lighter steps of it, so stacked bars follow the palette. */
+const shades = () => [colors.ink, inkRamp()[2], inkRamp()[1]];
 
 /** One bar split into shares, with a legend. */
 export function ShareBar({ parts }: { parts: { label: string; value: number; detail: string; icon?: ReactNode }[] }) {
@@ -158,14 +160,14 @@ export function ShareBar({ parts }: { parts: { label: string; value: number; det
         {total > 0
           ? parts.map((p, i) =>
               p.value > 0 ? (
-                <Animated.View key={p.label} layout={BAR_MOVE} style={{ flex: p.value, backgroundColor: SHADES[i % SHADES.length] }} />
+                <Animated.View key={p.label} layout={BAR_MOVE} style={{ flex: p.value, backgroundColor: shades()[i % 3] }} />
               ) : null,
             )
           : null}
       </View>
       {parts.map((p, i) => (
         <View key={p.label} style={styles.legendRow}>
-          <View style={[styles.swatch, { backgroundColor: SHADES[i % SHADES.length] }]} />
+          <View style={[styles.swatch, { backgroundColor: shades()[i % 3] }]} />
           {p.icon}
           <T v="small" style={{ flex: 1 }}>
             {p.label}
@@ -200,7 +202,7 @@ export function ConsistencyGrid({ weeks }: { weeks: { from: string; activeDays: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   bars: { flexDirection: 'row', gap: 3 },
   column: { flex: 1, alignItems: 'center', gap: 4 },
   track: { flex: 1, width: '100%', justifyContent: 'flex-end' },
@@ -214,4 +216,4 @@ const styles = StyleSheet.create({
   gridCol: { alignItems: 'center', gap: 3 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.inactive },
   dotOn: { backgroundColor: colors.ink },
-});
+}));

@@ -28,6 +28,7 @@ import { AppBar } from '@/ui/appbar';
 import { ActivityCard, useStartActivity } from '@/ui/activity';
 import { RouteThumb } from '@/ui/maps';
 import { getActivity } from '@/db/activities';
+import { themed } from '@/ui/theme';
 
 export default function Routes() {
   const insets = useSafeAreaInsets();
@@ -179,7 +180,7 @@ function RenameSheet({ route, onClose, onSave }: { route: SavedRoute | null; onC
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   thumb: {
@@ -191,4 +192,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: space.xs,
   },
-});
+}));

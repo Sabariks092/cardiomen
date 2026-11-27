@@ -6,6 +6,7 @@ import { useLocalQuery } from '@/db';
 import { AppNotification, clearNotifications, listNotifications, markAllRead, markRead } from '@/db/cardigo';
 import { Card, colors, EmptyState, Enter, IconName, RoundButton, Screen, space, T, Tap } from '@/ui';
 import { AppBar } from '@/ui/appbar';
+import { themed } from '@/ui/theme';
 
 const ICON: Record<AppNotification['kind'], IconName> = {
   goal: 'flag',
@@ -115,11 +116,11 @@ export default function Notifications() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   actions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.xs },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, padding: space.md },
   icon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.inactive, alignItems: 'center', justifyContent: 'center' },
   iconUnread: { backgroundColor: colors.ink },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.ink, marginTop: 6 },
-});
+}));

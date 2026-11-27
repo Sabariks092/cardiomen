@@ -32,6 +32,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityGlyph } from './activityIcon';
 import { colors, fontFor, fonts, radius, shadow, space, spring, type } from './theme';
+import { themed } from '@/ui/theme';
 
 export { colors, fontFor, fonts, radius, shadow, space, spring, type } from './theme';
 
@@ -670,7 +671,7 @@ export function Avatar({ name, uri, size = 40 }: { name: string; uri?: string | 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   card: {
     borderRadius: radius.lg,
@@ -790,4 +791,4 @@ const styles = StyleSheet.create({
   },
   badge: { alignItems: 'center', justifyContent: 'center' },
   avatar: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.inactive, overflow: 'hidden' },
-});
+}));

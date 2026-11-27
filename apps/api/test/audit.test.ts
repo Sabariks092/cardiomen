@@ -102,22 +102,20 @@ describe('guessing codes', () => {
 });
 
 describe('finding out who has an account', () => {
-  it('forgot-password answers the same for known and unknown emails, every time', async () => {
-    await h.prisma.user.create({ data: { email: VICTIM, name: 'V', emailVerifiedAt: new Date() } });
-    const statuses = async (email: string) => [
-      (await forgot(post('/forgot', { email }), noCtx)).status,
-      (await forgot(post('/forgot', { email }), noCtx)).status,
-    ];
-    expect(await statuses(VICTIM)).toEqual(await statuses('nobody@example.com'));
+  // By product decision, forgot-password and sign-up say whether an email has an account, so
+  // people get a clear message. The per-IP limit is what keeps this from being used in bulk.
+  it('checking which emails have accounts is limited per IP', async () => {
+    let last = 0;
+    for (let i = 0; i < 21; i += 1) {
+      last = (await forgot(post('/forgot', { email: `nobody${i}@example.com` }), noCtx)).status;
+    }
+    expect(last).toBe(429);
   });
 
-  it('resend answers the same for known and unknown emails', async () => {
-    await h.prisma.user.create({ data: { email: VICTIM, name: 'V', emailVerifiedAt: new Date() } });
-    const statuses = async (email: string) => [
-      (await resend(post('/resend', { email, purpose: 'RESET_PASSWORD' }), noCtx)).status,
-      (await resend(post('/resend', { email, purpose: 'RESET_PASSWORD' }), noCtx)).status,
-    ];
-    expect(await statuses(VICTIM)).toEqual(await statuses('nobody@example.com'));
+  it('resend for an unknown email sends nothing', async () => {
+    const res = await resend(post('/resend', { email: 'nobody@example.com', purpose: 'RESET_PASSWORD' }), noCtx);
+    expect(res.status).toBe(404);
+    expect(h.sent).toHaveLength(0);
   });
 
   it('impatient taps do not use up the hourly email budget', async () => {

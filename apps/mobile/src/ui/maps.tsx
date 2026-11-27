@@ -6,11 +6,11 @@ import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, View, ViewSt
 import { buildMapStyle, MONO_LIGHT, project } from '@/lib/mapStyle';
 import { bboxOf, LngLat, routeGeoJSON } from '@/lib/track';
 import { colors, fonts, shadow } from './theme';
+import { themed } from '@/ui/theme';
 
 const APP_STYLE = buildMapStyle(MONO_LIGHT) as unknown as MapProps['mapStyle'];
 
 const ROUTE_LINE = {
-  'line-color': colors.ink,
   'line-width': 4,
   'line-cap': 'round',
   'line-join': 'round',
@@ -88,7 +88,7 @@ export function LiveMap({
         </GeoJSONSource>
       ) : null}
       <GeoJSONSource id="route" data={route}>
-        <Layer id="route-line" type="line" paint={{ 'line-color': ROUTE_LINE['line-color'], 'line-width': ROUTE_LINE['line-width'] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+        <Layer id="route-line" type="line" paint={{ 'line-color': colors.ink, 'line-width': ROUTE_LINE['line-width'] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
       </GeoJSONSource>
       {dot ? (
         <GeoJSONSource id="position" data={dot}>
@@ -253,7 +253,7 @@ export const RouteThumb = memo(function RouteThumb({ lines, size = 56 }: { lines
   );
 });
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.bgSoft, padding: 24 },
   emptyText: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, textAlign: 'center' },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(238,238,238,0.85)' },
@@ -281,4 +281,4 @@ const styles = StyleSheet.create({
   },
   legendDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
   legendText: { fontFamily: fonts.medium, fontSize: 11, color: colors.text, marginRight: 4 },
-});
+}));

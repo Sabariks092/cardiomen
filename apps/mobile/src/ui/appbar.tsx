@@ -6,6 +6,7 @@ import { useLocalQuery } from '@/db';
 import { unreadCount } from '@/db/cardigo';
 import { useSettings } from '@/db/settings';
 import { Avatar, colors, Enter, RoundButton, space, Tap } from './index';
+import { themed } from '@/ui/theme';
 
 const LOGO = require('../../assets/brand/logo-horizontal.png');
 
@@ -42,7 +43,7 @@ export function AppBar() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   logo: { height: 40, width: Math.round((40 * 842) / 300) },
   unreadDot: {
@@ -56,4 +57,4 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.card,
   },
-});
+}));

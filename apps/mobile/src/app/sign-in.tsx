@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { friendlyError, publicPost } from '@/auth/api';
+import { emailProblem, normalizeEmail } from '@/auth/emailCheck';
+import { EmailField, GoogleButton, OrDivider } from '@/auth/parts';
 import { startSession } from '@/auth/session';
 import { requestSync } from '@/sync/worker';
 import { importFinished } from '@/tracking/importer';
@@ -16,13 +18,17 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    setBusy(true);
+    const problem = emailProblem(email);
+    setEmailError(problem);
     setError(null);
+    if (problem) return;
+    setBusy(true);
     try {
-      const auth = await publicPost<AuthResponse>('/auth/login', { email, password });
+      const auth = await publicPost<AuthResponse>('/auth/login', { email: normalizeEmail(email), password });
       await startSession(auth);
       importFinished().then(requestSync).catch((e) => console.warn(e));
       resetTo(router, '/(tabs)');
@@ -41,13 +47,15 @@ export default function SignIn() {
           contentContainerStyle={{ padding: space.xl, paddingTop: insets.top + space.xxl, gap: space.lg }}
         >
           <T v="title">Sign in</T>
-          <Field
-            label="Email"
+          <GoogleButton kind="glass" onError={setError} />
+          <OrDivider />
+          <EmailField
             value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
+            onChangeText={(v) => {
+              setEmail(v);
+              setEmailError(null);
+            }}
+            error={emailError}
           />
           <Field
             label="Password"
@@ -58,7 +66,13 @@ export default function SignIn() {
           />
           {error ? <T v="small">{error}</T> : null}
           <Button title="Sign in" loading={busy} disabled={!email || !password} onPress={submit} />
-          <Button title="Forgot password?" kind="ghost" onPress={() => router.push('/forgot')} />
+          {/* The email typed here carries over, so it doesn't have to be typed twice. */}
+          <Button
+            title="Forgot password?"
+            kind="ghost"
+            onPress={() => router.push({ pathname: '/forgot', params: { email: normalizeEmail(email) } })}
+          />
+          <Button title="New here? Create an account" kind="ghost" onPress={() => router.replace('/register')} />
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>

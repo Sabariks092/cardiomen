@@ -8,6 +8,7 @@ import { saveSetting } from '@/db/settings';
 import { averagePace, formatDay, formatDistance, formatDuration, formatPace, formatStartTime, TYPE_LABEL, Units } from '@/lib/format';
 import { ActivityBadge, Card, colors, radius, Sheet, space, T, Tap } from './index';
 import { RouteThumb } from './maps';
+import { themed } from '@/ui/theme';
 
 export const TYPES: ActivityType[] = ['walk', 'jog', 'run'];
 
@@ -135,7 +136,7 @@ export const ActivityCard = memo(function ActivityCard({
   );
 });
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   pickRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -160,4 +161,4 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   tag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill, backgroundColor: colors.inactive },
   numbers: { flexDirection: 'row', gap: space.md, marginTop: 2 },
-});
+}));

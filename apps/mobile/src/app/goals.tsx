@@ -31,6 +31,7 @@ import {
   Tap,
 } from '@/ui';
 import { AppBar } from '@/ui/appbar';
+import { themed } from '@/ui/theme';
 
 const TYPE_OPTIONS = [
   { value: 'any', label: 'Any activity' },
@@ -262,7 +263,7 @@ function GoalSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   goalTop: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   doneBadge: {
@@ -281,4 +282,4 @@ const styles = StyleSheet.create({
   badge: { alignItems: 'center', gap: 6, padding: space.md, minHeight: 150 },
   medal: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   medalOff: { backgroundColor: colors.inactive },
-});
+}));

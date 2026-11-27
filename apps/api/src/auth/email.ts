@@ -44,9 +44,3 @@ export async function sendOtpEmail(to: string, code: string, purpose: OtpPurpose
 </div>`;
   await mailer().send(to, `${code} is your Cardiomen code`, text, html);
 }
-
-export async function sendAccountExistsEmail(to: string) {
-  const text =
-    "Someone tried to create a Cardiomen account with this email, but you already have one.\n\nSign in instead, or reset your password if you've forgotten it. If this wasn't you, you can ignore this email.";
-  await mailer().send(to, 'You already have a Cardiomen account', text, `<p>${text.replace(/\n\n/g, '</p><p>')}</p>`);
-}

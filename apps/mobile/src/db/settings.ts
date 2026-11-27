@@ -34,6 +34,8 @@ export interface Settings {
   // Profile (this phone)
   profileName: string | null;
   avatarUri: string | null;
+  /** The Google profile picture was offered as the photo once already. */
+  googlePhotoApplied: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -56,6 +58,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyWeekly: true,
   profileName: null,
   avatarUri: null,
+  googlePhotoApplied: false,
 };
 
 export async function loadSettings(): Promise<Settings> {
