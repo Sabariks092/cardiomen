@@ -1,9 +1,9 @@
 /** The Android build offered for download. The tag keeps this link stable after branches change. */
 export const ANDROID_RELEASE = {
-  version: '0.0.2',
+  version: '0.0.4',
   sizeMb: 29.7,
   minAndroid: 'Android 8.0',
-  url: 'https://github.com/Sabariks092/cardiomen/raw/v0.0.3/apk/cardiomen-0.0.3.apk',
+  url: 'https://github.com/Sabariks092/cardiomen/raw/v0.0.4/apk/cardiomen-0.0.4.apk',
 };
 
 /** The web version, which iPhone users add to their home screen. */
